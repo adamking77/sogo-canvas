@@ -78,8 +78,6 @@ interface CanvasNodeViewData extends CanvasNodeData {
   assetUri?: string;
   draftText?: string;
   isEditing?: boolean;
-  isSelected?: boolean;
-  onSelect?: () => void;
   onStartEdit?: () => void;
   onDraftChange?: (value: string) => void;
   onCommitEdit?: () => void;
@@ -474,7 +472,7 @@ function ToolbarIcon({ name }: { name: string }) {
 
 function CanvasNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as CanvasNodeViewData;
-  const isSelected = Boolean(nodeData.isSelected || selected);
+  const isSelected = Boolean(selected);
   const shape = nodeData.sogo?.shape ?? "rounded";
   const border = nodeData.sogo?.border ?? "subtle";
   const align = nodeData.sogo?.textAlign ?? "left";
@@ -494,10 +492,6 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
       ].join(" ")}
       style={{
         textAlign: align
-      }}
-      onClick={(event) => {
-        event.stopPropagation();
-        nodeData.onSelect?.();
       }}
     >
       <NodeResizer
@@ -613,8 +607,6 @@ export default function App() {
           assetUri: base.file ? assetUris[base.file] : undefined,
           draftText,
           isEditing: editingNodeId === node.id,
-          isSelected: selectedNodeId === node.id,
-          onSelect: () => setSelectedNodeId(node.id),
           onStartEdit: () => startEditingNode(node.id),
           onDraftChange: setDraftText,
           onCommitEdit: commitEdit,
@@ -942,7 +934,7 @@ export default function App() {
         connectionMode={ConnectionMode.Loose}
         nodesDraggable={editingNodeId === null}
         nodesConnectable
-        elementsSelectable={false}
+        elementsSelectable
         defaultEdgeOptions={{
           type: "bezier",
           style: {
@@ -974,9 +966,6 @@ export default function App() {
             startEditingNode(node.id);
           }
         }}
-        onNodeDragStart={(_, node) => {
-          setSelectedNodeId(node.id);
-        }}
         onNodesChange={(changes) =>
           setNodes((current) => applyNodeChanges(changes, current))
         }
@@ -984,6 +973,9 @@ export default function App() {
           setEdges((current) => applyEdgeChanges(changes, current))
         }
         onConnect={handleConnect}
+        onSelectionChange={({ nodes: selectedNodes }) => {
+          setSelectedNodeId(selectedNodes[0]?.id ?? null);
+        }}
       >
       </ReactFlow>
 
@@ -1095,7 +1087,7 @@ export default function App() {
                           ? "is-active"
                           : ""
                       ].join(" ")}
-                  onClick={() =>
+                      onClick={() =>
                         updateSelectedNode((node) => ({
                           ...node,
                           width:

@@ -87,6 +87,13 @@ body {
   z-index: 1;
 }
 
+.react-flow,
+.react-flow__renderer,
+.react-flow__viewport,
+.react-flow__pane {
+  background: transparent;
+}
+
 .react-flow__pane {
   cursor: grab;
 }
