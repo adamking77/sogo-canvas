@@ -6,6 +6,7 @@ import {
   Handle,
   MarkerType,
   Node,
+  NodeResizer,
   NodeProps,
   Position,
   ReactFlow,
@@ -15,7 +16,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type SogoBackground = "plain" | "dots" | "grid";
-type SogoShape = "rounded" | "pill" | "rect" | "diamond" | "circle";
+type SogoShape = "rounded" | "rect" | "diamond" | "parallelogram" | "circle";
 type SogoBorder = "none" | "subtle" | "strong";
 type SogoTextAlign = "left" | "center" | "right";
 type CanvasNodeType = "text" | "group" | "file" | "image";
@@ -79,7 +80,6 @@ interface CanvasNodeViewData extends CanvasNodeData {
   isEditing?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
-  onResizeStart?: (event: React.MouseEvent<HTMLButtonElement>) => void;
   onStartEdit?: () => void;
   onDraftChange?: (value: string) => void;
   onCommitEdit?: () => void;
@@ -108,8 +108,8 @@ const colorOptions = [
 const shapeOptions: SogoShape[] = [
   "rect",
   "rounded",
-  "pill",
   "diamond",
+  "parallelogram",
   "circle"
 ];
 const borderOptions: SogoBorder[] = ["none", "subtle", "strong"];
@@ -442,7 +442,7 @@ function ToolbarIcon({ name }: { name: string }) {
     case "shape":
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <rect x="5" y="7" width="14" height="10" rx="3" />
+          <path d="M7 7h10l-2 10H5l2-10Z" />
         </svg>
       );
     case "edit":
@@ -500,40 +500,25 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
         nodeData.onSelect?.();
       }}
     >
-      <Handle
-        id="connect-top"
-        className="node-handle node-handle-top"
-        type="source"
-        position={Position.Top}
-        isConnectableStart
-        isConnectableEnd
-        isConnectable
+      <NodeResizer
+        isVisible={isSelected && !nodeData.isEditing}
+        minWidth={nodeData.type === "group" ? 220 : 140}
+        minHeight={nodeData.type === "image" ? 160 : 64}
+        lineClassName="node-resizer-line"
+        handleClassName="node-resizer-handle"
       />
       <Handle
         id="connect-right"
         className="node-handle node-handle-right"
         type="source"
         position={Position.Right}
-        isConnectableStart
-        isConnectableEnd
-        isConnectable
-      />
-      <Handle
-        id="connect-bottom"
-        className="node-handle node-handle-bottom"
-        type="source"
-        position={Position.Bottom}
-        isConnectableStart
-        isConnectableEnd
         isConnectable
       />
       <Handle
         id="connect-left"
         className="node-handle node-handle-left"
-        type="source"
+        type="target"
         position={Position.Left}
-        isConnectableStart
-        isConnectableEnd
         isConnectable
       />
 
@@ -583,16 +568,6 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
       )}
 
       {nodeData.file ? <div className="node-meta">{nodeData.file}</div> : null}
-
-      {isSelected && !nodeData.isEditing ? (
-        <button
-          type="button"
-          className="node-resize-grip nodrag nopan"
-          aria-label="Resize node"
-          onMouseDown={nodeData.onResizeStart}
-          onClick={(event) => event.stopPropagation()}
-        />
-      ) : null}
     </div>
   );
 }
@@ -603,15 +578,6 @@ const nodeTypes = {
 
 export default function App() {
   const shellRef = useRef<HTMLDivElement>(null);
-  const resizeSessionRef = useRef<{
-    nodeId: string;
-    startX: number;
-    startY: number;
-    startWidth: number;
-    startHeight: number;
-    minWidth: number;
-    minHeight: number;
-  } | null>(null);
   const [documentState, setDocumentState] = useState<CanvasDocumentData>(
     createEmptyDocument()
   );
@@ -649,7 +615,6 @@ export default function App() {
           isEditing: editingNodeId === node.id,
           isSelected: selectedNodeId === node.id,
           onSelect: () => setSelectedNodeId(node.id),
-          onResizeStart: (event) => beginResize(node.id, event),
           onStartEdit: () => startEditingNode(node.id),
           onDraftChange: setDraftText,
           onCommitEdit: commitEdit,
@@ -878,62 +843,6 @@ export default function App() {
   function toggleSelectionPanel(panel: Exclude<SelectionPanel, null>): void {
     setSelectionPanel((current) => (current === panel ? null : panel));
   }
-
-  function beginResize(
-    nodeId: string,
-    event: React.MouseEvent<HTMLButtonElement>
-  ): void {
-    event.preventDefault();
-    event.stopPropagation();
-
-    const node = nodes.find((item) => item.id === nodeId);
-    if (!node) {
-      return;
-    }
-
-    const persisted = persistNodeData(node.data);
-    resizeSessionRef.current = {
-      nodeId,
-      startX: event.clientX,
-      startY: event.clientY,
-      startWidth: persisted.width,
-      startHeight: persisted.height,
-      minWidth: persisted.type === "group" ? 240 : 180,
-      minHeight: persisted.type === "image" ? 180 : 88
-    };
-  }
-
-  useEffect(() => {
-    const onMouseMove = (event: MouseEvent) => {
-      const session = resizeSessionRef.current;
-      if (!session) {
-        return;
-      }
-
-      patchNode(session.nodeId, (node) => ({
-        ...node,
-        width: Math.max(
-          session.minWidth,
-          session.startWidth + (event.clientX - session.startX)
-        ),
-        height: Math.max(
-          session.minHeight,
-          session.startHeight + (event.clientY - session.startY)
-        )
-      }));
-    };
-
-    const onMouseUp = () => {
-      resizeSessionRef.current = null;
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-  }, [nodes]);
 
   async function addFileNode(): Promise<void> {
     const file = await requestFilePath();
@@ -1186,9 +1095,17 @@ export default function App() {
                           ? "is-active"
                           : ""
                       ].join(" ")}
-                      onClick={() =>
+                  onClick={() =>
                         updateSelectedNode((node) => ({
                           ...node,
+                          width:
+                            shape === "circle" || shape === "diamond"
+                              ? Math.max(140, Math.min(node.width, node.height))
+                              : node.width,
+                          height:
+                            shape === "circle" || shape === "diamond"
+                              ? Math.max(140, Math.min(node.width, node.height))
+                              : node.height,
                           sogo: {
                             ...node.sogo,
                             shape

@@ -19,7 +19,6 @@
   --canvas-minimap-node: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 26%, transparent);
   --toolbar-bg: color-mix(in srgb, var(--vscode-editor-background, #11141d) 88%, white 5%);
   --toolbar-border: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 14%, transparent);
-  --toolbar-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
 }
 
 * {
@@ -63,24 +62,24 @@ body {
   background-image:
     radial-gradient(
       circle,
-      color-mix(in srgb, var(--canvas-grid-color) 170%, transparent) 1.1px,
-      transparent 1.7px
+      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.3px,
+      transparent 2px
     );
-  background-size: 34px 34px;
+  background-size: 28px 28px;
 }
 
 .app-shell.background-grid::before {
   background-image:
     linear-gradient(
-      color-mix(in srgb, var(--canvas-grid-color) 180%, transparent) 1px,
-      transparent 1px
+      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.2px,
+      transparent 1.2px
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--canvas-grid-color) 180%, transparent) 1px,
-      transparent 1px
+      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.2px,
+      transparent 1.2px
     );
-  background-size: 34px 34px;
+  background-size: 28px 28px;
 }
 
 .app-shell > * {
@@ -102,7 +101,6 @@ body {
   overflow: hidden;
   background: color-mix(in srgb, var(--toolbar-bg) 92%, transparent);
   border: 1px solid var(--toolbar-border);
-  box-shadow: var(--toolbar-shadow);
 }
 
 .react-flow__controls button {
@@ -128,34 +126,36 @@ body {
   background: var(--node-fill);
   color: var(--canvas-text);
   border: 1px solid color-mix(in srgb, var(--node-accent) 72%, transparent);
-  box-shadow:
-    0 16px 38px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
   transition:
     border-color 120ms ease,
-    box-shadow 120ms ease,
     transform 120ms ease;
 }
 
+.node-resizer-line {
+  border-color: color-mix(in srgb, var(--canvas-accent) 65%, transparent) !important;
+}
+
+.node-resizer-handle {
+  width: 9px !important;
+  height: 9px !important;
+  border-radius: 999px !important;
+  border: 1.5px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%) !important;
+  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%) !important;
+}
+
 .canvas-node.is-editing {
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--node-accent) 36%, transparent),
-    0 22px 54px rgba(0, 0, 0, 0.32);
+  outline: 2px solid color-mix(in srgb, var(--node-accent) 36%, transparent);
+  outline-offset: 0;
 }
 
 .canvas-node.is-selected {
   border-color: var(--canvas-accent);
-  box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--canvas-accent) 30%, transparent),
-    0 20px 48px rgba(0, 0, 0, 0.28);
+  outline: 2px solid color-mix(in srgb, var(--canvas-accent) 28%, transparent);
+  outline-offset: 0;
 }
 
 .canvas-node.shape-rounded {
   border-radius: 24px;
-}
-
-.canvas-node.shape-pill {
-  border-radius: 999px;
 }
 
 .canvas-node.shape-rect {
@@ -164,7 +164,13 @@ body {
 
 .canvas-node.shape-diamond {
   border-radius: 18px;
-  clip-path: polygon(12% 0%, 88% 0%, 100% 50%, 88% 100%, 12% 100%, 0% 50%);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  padding: 18px;
+}
+
+.canvas-node.shape-parallelogram {
+  border-radius: 12px;
+  clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
 }
 
 .canvas-node.shape-circle {
@@ -312,8 +318,8 @@ body {
 
 .node-handle {
   position: absolute;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%);
   border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%);
@@ -331,62 +337,14 @@ body {
   transform: scale(1);
 }
 
-.node-handle-top {
-  top: -9px;
-  left: calc(50% - 8px);
-}
-
 .node-handle-right {
-  top: calc(50% - 8px);
-  right: -9px;
-}
-
-.node-handle-bottom {
-  bottom: -9px;
-  left: calc(50% - 8px);
+  top: calc(50% - 7px);
+  right: -8px;
 }
 
 .node-handle-left {
-  top: calc(50% - 8px);
-  left: -9px;
-}
-
-.node-resize-grip {
-  position: absolute;
-  right: -10px;
-  bottom: -10px;
-  width: 18px;
-  height: 18px;
-  border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
-  cursor: nwse-resize;
-  z-index: 5;
-}
-
-.node-resize-grip::before,
-.node-resize-grip::after {
-  content: "";
-  position: absolute;
-  background: color-mix(in srgb, white 82%, transparent);
-  border-radius: 999px;
-}
-
-.node-resize-grip::before {
-  width: 8px;
-  height: 2px;
-  right: 3px;
-  bottom: 5px;
-  transform: rotate(-45deg);
-}
-
-.node-resize-grip::after {
-  width: 5px;
-  height: 2px;
-  right: 2px;
-  bottom: 2px;
-  transform: rotate(-45deg);
+  top: calc(50% - 7px);
+  left: -8px;
 }
 
 .toolbar-stack {
@@ -413,7 +371,6 @@ body {
   border-radius: 24px;
   border: 1px solid var(--toolbar-border);
   background: color-mix(in srgb, var(--toolbar-bg) 94%, transparent);
-  box-shadow: var(--toolbar-shadow);
   backdrop-filter: blur(18px);
 }
 
@@ -439,14 +396,14 @@ body {
 }
 
 .contextual-toolbar {
-  min-height: 42px;
-  padding: 6px 10px;
+  min-height: 40px;
+  padding: 5px 8px;
   border-radius: 20px;
 }
 
 .contextual-tray {
-  min-height: 44px;
-  padding: 6px 10px;
+  min-height: 38px;
+  padding: 4px 8px;
   border-radius: 20px;
   justify-content: center;
 }
@@ -454,7 +411,7 @@ body {
 .toolbar-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -633,15 +590,15 @@ body {
 }
 
 .swatch-button {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: 999px;
 }
 
 .color-swatch {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--canvas-text) 22%, transparent);
   display: inline-block;
@@ -688,8 +645,8 @@ body {
 
 .shape-button,
 .align-button {
-  width: 32px;
-  height: 28px;
+  width: 28px;
+  height: 24px;
   padding: 0;
 }
 
@@ -698,8 +655,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -732,6 +689,11 @@ body {
   stroke-linecap: round;
   stroke-linejoin: round;
   color: color-mix(in srgb, var(--canvas-text) 86%, transparent);
+}
+
+.contextual-toolbar .toolbar-command svg {
+  width: 18px;
+  height: 18px;
 }
 
 .insert-button {
@@ -877,14 +839,15 @@ body {
   border-radius: 9px;
 }
 
-.shape-preview-pill {
-  border-radius: 999px;
-}
-
 .shape-preview-diamond {
   width: 16px;
   height: 16px;
   transform: rotate(45deg);
+  border-radius: 3px;
+}
+
+.shape-preview-parallelogram {
+  transform: skewX(-18deg);
   border-radius: 3px;
 }
 
