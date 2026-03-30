@@ -51,6 +51,43 @@ body {
     var(--canvas-bg);
 }
 
+.app-shell::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app-shell.background-dots::before {
+  background-image:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--canvas-grid-color) 170%, transparent) 1.1px,
+      transparent 1.7px
+    );
+  background-size: 34px 34px;
+}
+
+.app-shell.background-grid::before {
+  background-image:
+    linear-gradient(
+      color-mix(in srgb, var(--canvas-grid-color) 180%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--canvas-grid-color) 180%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 34px 34px;
+}
+
+.app-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
 .react-flow__pane {
   cursor: grab;
 }

@@ -1,7 +1,5 @@
 import {
   addEdge,
-  Background,
-  BackgroundVariant,
   Connection,
   ConnectionMode,
   Edge,
@@ -80,6 +78,8 @@ interface CanvasNodeViewData extends CanvasNodeData {
   assetUri?: string;
   draftText?: string;
   isEditing?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
   onStartEdit?: () => void;
   onDraftChange?: (value: string) => void;
   onCommitEdit?: () => void;
@@ -311,17 +311,6 @@ function parseDocument(content: string): CanvasDocumentData {
   };
 }
 
-function backgroundVariant(mode: SogoBackground): BackgroundVariant | undefined {
-  switch (mode) {
-    case "dots":
-      return BackgroundVariant.Dots;
-    case "grid":
-      return BackgroundVariant.Lines;
-    default:
-      return undefined;
-  }
-}
-
 function requestFilePath(accept?: "image"): Promise<string | undefined> {
   return new Promise((resolve) => {
     if (!vscode) {
@@ -485,6 +474,7 @@ function ToolbarIcon({ name }: { name: string }) {
 
 function CanvasNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as CanvasNodeViewData;
+  const isSelected = Boolean(nodeData.isSelected || selected);
   const shape = nodeData.sogo?.shape ?? "rounded";
   const border = nodeData.sogo?.border ?? "subtle";
   const align = nodeData.sogo?.textAlign ?? "left";
@@ -499,15 +489,19 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
         `shape-${shape}`,
         `border-${border}`,
         `tone-${color}`,
-        selected ? "is-selected" : "",
+        isSelected ? "is-selected" : "",
         nodeData.isEditing ? "is-editing" : ""
       ].join(" ")}
       style={{
         textAlign: align
       }}
+      onClick={(event) => {
+        event.stopPropagation();
+        nodeData.onSelect?.();
+      }}
     >
       <NodeResizer
-        isVisible={selected && !nodeData.isEditing}
+        isVisible={isSelected && !nodeData.isEditing}
         minWidth={nodeData.type === "group" ? 240 : 180}
         minHeight={nodeData.type === "image" ? 180 : 88}
         lineClassName="node-resizer-line"
@@ -544,6 +538,7 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
           autoFocus
           className="node-editor"
           value={nodeData.draftText ?? ""}
+          onClick={(event) => event.stopPropagation()}
           onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
           onBlur={() => nodeData.onCommitEdit?.()}
           onKeyDown={(event) => {
@@ -616,6 +611,8 @@ export default function App() {
           assetUri: base.file ? assetUris[base.file] : undefined,
           draftText,
           isEditing: editingNodeId === node.id,
+          isSelected: selectedNodeId === node.id,
+          onSelect: () => setSelectedNodeId(node.id),
           onStartEdit: () => startEditingNode(node.id),
           onDraftChange: setDraftText,
           onCommitEdit: commitEdit,
@@ -697,7 +694,7 @@ export default function App() {
     const updatePosition = () => {
       const shellRect = shellRef.current?.getBoundingClientRect();
       const selectedElement = document.querySelector(
-        ".react-flow__node.selected"
+        `.react-flow__node[data-id="${selectedNodeId}"]`
       ) as HTMLElement | null;
 
       if (!shellRect || !selectedElement) {
@@ -942,7 +939,8 @@ export default function App() {
         maxZoom={2.5}
         connectionMode={ConnectionMode.Loose}
         nodesDraggable={editingNodeId === null}
-        elementsSelectable
+        nodesConnectable
+        elementsSelectable={false}
         defaultEdgeOptions={{
           type: "bezier",
           style: {
@@ -974,6 +972,9 @@ export default function App() {
             startEditingNode(node.id);
           }
         }}
+        onNodeDragStart={(_, node) => {
+          setSelectedNodeId(node.id);
+        }}
         onNodesChange={(changes) =>
           setNodes((current) => applyNodeChanges(changes, current))
         }
@@ -981,19 +982,7 @@ export default function App() {
           setEdges((current) => applyEdgeChanges(changes, current))
         }
         onConnect={handleConnect}
-        onSelectionChange={(selection) => {
-          setSelectedNodeId(selection.nodes[0]?.id ?? null);
-        }}
       >
-        {documentState.sogo?.background !== "plain" ? (
-          <Background
-            key={documentState.sogo?.background ?? "dots"}
-            variant={backgroundVariant(documentState.sogo?.background ?? "dots")}
-            gap={documentState.sogo?.background === "dots" ? 30 : 44}
-            size={documentState.sogo?.background === "dots" ? 2 : 1.2}
-            color="color-mix(in srgb, var(--canvas-grid-color) 160%, transparent)"
-          />
-        ) : null}
       </ReactFlow>
 
       {showSelectionTools && toolbarPosition ? (
