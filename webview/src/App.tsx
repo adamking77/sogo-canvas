@@ -140,8 +140,8 @@ function createNode(
     x: position.x,
     y: position.y,
     width:
-      type === "group" ? 420 : type === "image" ? 260 : type === "file" ? 240 : 220,
-    height: type === "group" ? 240 : type === "image" ? 220 : 84,
+      type === "group" ? 360 : type === "image" ? 240 : type === "file" ? 220 : 180,
+    height: type === "group" ? 200 : type === "image" ? 200 : 72,
     color: "default",
     sogo: {
       shape: type === "group" ? "rect" : "rounded",
@@ -587,7 +587,7 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
       {isSelected && !nodeData.isEditing ? (
         <button
           type="button"
-          className="node-resize-grip"
+          className="node-resize-grip nodrag nopan"
           aria-label="Resize node"
           onMouseDown={nodeData.onResizeStart}
           onClick={(event) => event.stopPropagation()}
