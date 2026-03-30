@@ -8,6 +8,7 @@ import {
   Handle,
   MarkerType,
   Node,
+  NodeResizer,
   NodeProps,
   Position,
   ReactFlow,
@@ -380,6 +381,13 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
         textAlign: align
       }}
     >
+      <NodeResizer
+        isVisible={selected && !nodeData.isEditing}
+        minWidth={nodeData.type === "group" ? 240 : 180}
+        minHeight={nodeData.type === "image" ? 180 : 88}
+        lineClassName="node-resizer-line"
+        handleClassName="node-resizer-handle"
+      />
       <Handle
         id="target-left"
         className="node-handle node-handle-left"
@@ -466,6 +474,8 @@ export default function App() {
     const selected = nodes.find((node) => node.id === selectedNodeId);
     return selected ? persistNodeData(selected.data) : null;
   }, [nodes, selectedNodeId]);
+
+  const showSelectionTools = Boolean(selectedNode);
 
   const renderedNodes = useMemo(
     () =>
@@ -823,19 +833,19 @@ export default function App() {
           {activePanel === "insert" ? (
             <div className="toolbar-group">
               <button className="tray-button" onClick={() => addNodeOfType("text")}>
-                <span className="tray-glyph">T</span>
+                <span className="tray-glyph tray-glyph-text" />
                 <span>Text</span>
               </button>
               <button className="tray-button" onClick={() => addNodeOfType("group")}>
-                <span className="tray-glyph">G</span>
+                <span className="tray-glyph tray-glyph-group" />
                 <span>Group</span>
               </button>
               <button className="tray-button" onClick={addFileNode}>
-                <span className="tray-glyph">F</span>
+                <span className="tray-glyph tray-glyph-file" />
                 <span>File</span>
               </button>
               <button className="tray-button" onClick={addImageNode}>
-                <span className="tray-glyph">I</span>
+                <span className="tray-glyph tray-glyph-image" />
                 <span>Image</span>
               </button>
             </div>
@@ -978,52 +988,95 @@ export default function App() {
         <div className="bottom-toolbar">
           <div className="toolbar-group">
             <button
-              className={activePanel === "insert" ? "is-active" : ""}
+              title="Add nodes"
+              aria-label="Add nodes"
+              className={[
+                "toolbar-command",
+                "toolbar-command-add",
+                activePanel === "insert" ? "is-active" : ""
+              ].join(" ")}
               onClick={() => setActivePanel("insert")}
             >
-              Add
+              <span className="toolbar-command-icon" />
             </button>
             <button
-              className={activePanel === "background" ? "is-active" : ""}
+              title="Canvas background"
+              aria-label="Canvas background"
+              className={[
+                "toolbar-command",
+                "toolbar-command-background",
+                activePanel === "background" ? "is-active" : ""
+              ].join(" ")}
               onClick={() => setActivePanel("background")}
             >
-              Background
+              <span className="toolbar-command-icon" />
             </button>
           </div>
 
-          {selectedNode ? (
+          {showSelectionTools ? (
             <>
               <div className="toolbar-divider" />
               <div className="toolbar-group">
                 <button
-                  className={activePanel === "color" ? "is-active" : ""}
+                  title="Color"
+                  aria-label="Color"
+                  className={[
+                    "toolbar-command",
+                    "toolbar-command-color",
+                    activePanel === "color" ? "is-active" : ""
+                  ].join(" ")}
                   onClick={() => setActivePanel("color")}
                 >
-                  Color
+                  <span className="toolbar-command-icon" />
                 </button>
                 <button
-                  className={activePanel === "shape" ? "is-active" : ""}
+                  title="Shape"
+                  aria-label="Shape"
+                  className={[
+                    "toolbar-command",
+                    "toolbar-command-shape",
+                    activePanel === "shape" ? "is-active" : ""
+                  ].join(" ")}
                   onClick={() => setActivePanel("shape")}
                 >
-                  Shape
+                  <span className="toolbar-command-icon" />
                 </button>
                 <button
-                  className={activePanel === "align" ? "is-active" : ""}
+                  title="Align"
+                  aria-label="Align"
+                  className={[
+                    "toolbar-command",
+                    "toolbar-command-align",
+                    activePanel === "align" ? "is-active" : ""
+                  ].join(" ")}
                   onClick={() => setActivePanel("align")}
                 >
-                  Align
+                  <span className="toolbar-command-icon" />
                 </button>
                 <button
-                  className={activePanel === "border" ? "is-active" : ""}
+                  title="Border"
+                  aria-label="Border"
+                  className={[
+                    "toolbar-command",
+                    "toolbar-command-border",
+                    activePanel === "border" ? "is-active" : ""
+                  ].join(" ")}
                   onClick={() => setActivePanel("border")}
                 >
-                  Border
+                  <span className="toolbar-command-icon" />
                 </button>
               </div>
 
               <div className="toolbar-divider" />
               <div className="toolbar-group">
-                <button onClick={handleDeleteSelection}>Delete</button>
+                <button
+                  title="Delete"
+                  aria-label="Delete"
+                  className="toolbar-command toolbar-command-delete"
+                  onClick={handleDeleteSelection}
+                >
+                  <span className="toolbar-command-icon" />
+                </button>
               </div>
             </>
           ) : null}

@@ -97,6 +97,18 @@ body {
     transform 120ms ease;
 }
 
+.node-resizer-line {
+  border-color: color-mix(in srgb, var(--canvas-accent) 65%, transparent) !important;
+}
+
+.node-resizer-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 6%) !important;
+  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%) !important;
+}
+
 .canvas-node.is-editing {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--node-accent) 36%, transparent),
@@ -359,32 +371,6 @@ body {
   background: var(--toolbar-border);
 }
 
-.bottom-toolbar button {
-  appearance: none;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  padding: 9px 12px;
-  background: transparent;
-  color: var(--canvas-text);
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease,
-    color 120ms ease;
-}
-
-.bottom-toolbar button:hover {
-  background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
-  border-color: var(--toolbar-border);
-}
-
-.bottom-toolbar button.is-active {
-  background: color-mix(in srgb, var(--canvas-accent) 18%, transparent);
-  border-color: color-mix(in srgb, var(--canvas-accent) 45%, transparent);
-}
-
 .react-flow__edge-path {
   stroke: var(--canvas-edge);
   stroke-width: 2;
@@ -392,6 +378,11 @@ body {
 
 .react-flow__edge.selected .react-flow__edge-path {
   stroke: var(--canvas-accent);
+}
+
+.react-flow__connection-path {
+  stroke: color-mix(in srgb, var(--canvas-accent) 72%, transparent);
+  stroke-width: 2;
 }
 
 .tray-button,
@@ -451,6 +442,65 @@ body {
   color: var(--canvas-text-muted);
   font-size: 11px;
   letter-spacing: 0.04em;
+}
+
+.tray-glyph::before,
+.toolbar-command-icon::before,
+.toolbar-command-icon::after,
+.tray-glyph::after {
+  content: "";
+  position: absolute;
+}
+
+.tray-glyph {
+  position: relative;
+}
+
+.tray-glyph-text::before {
+  inset: 4px 7px auto;
+  height: 2px;
+  background: currentColor;
+  box-shadow:
+    0 4px 0 currentColor,
+    0 8px 0 currentColor;
+}
+
+.tray-glyph-group::before {
+  inset: 3px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+}
+
+.tray-glyph-file::before {
+  inset: 3px 4px 3px 5px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+}
+
+.tray-glyph-file::after {
+  top: 3px;
+  right: 4px;
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid currentColor;
+  border-right: 1.5px solid currentColor;
+  transform: skew(-8deg, -8deg);
+}
+
+.tray-glyph-image::before {
+  inset: 4px;
+  border: 1.5px solid currentColor;
+  border-radius: 4px;
+}
+
+.tray-glyph-image::after {
+  left: 5px;
+  bottom: 5px;
+  width: 10px;
+  height: 6px;
+  border-left: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: skewX(-35deg);
 }
 
 .background-chip {
@@ -539,6 +589,127 @@ body {
   width: 46px;
   height: 42px;
   padding: 0;
+}
+
+.toolbar-command {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--canvas-text);
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.toolbar-command:hover {
+  background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
+  border-color: var(--toolbar-border);
+}
+
+.toolbar-command.is-active {
+  background: color-mix(in srgb, var(--canvas-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--canvas-accent) 45%, transparent);
+}
+
+.toolbar-command-icon {
+  position: relative;
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  color: color-mix(in srgb, var(--canvas-text) 82%, transparent);
+}
+
+.toolbar-command-add .toolbar-command-icon::before {
+  inset: 8px 2px;
+  height: 2px;
+  background: currentColor;
+}
+
+.toolbar-command-add .toolbar-command-icon::after {
+  inset: 2px 8px;
+  width: 2px;
+  background: currentColor;
+}
+
+.toolbar-command-background .toolbar-command-icon::before {
+  inset: 2px;
+  border-radius: 5px;
+  border: 1.5px solid currentColor;
+  background:
+    radial-gradient(circle, currentColor 1px, transparent 1.5px);
+  background-size: 6px 6px;
+}
+
+.toolbar-command-color .toolbar-command-icon::before {
+  inset: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    135deg,
+    #f082a8 0%,
+    #ffb07a 24%,
+    #f4d99b 45%,
+    #7ecbdd 72%,
+    #b1b6f9 100%
+  );
+}
+
+.toolbar-command-shape .toolbar-command-icon::before {
+  inset: 3px 2px;
+  border: 1.5px solid currentColor;
+  border-radius: 6px;
+}
+
+.toolbar-command-align .toolbar-command-icon::before {
+  left: 2px;
+  right: 2px;
+  top: 3px;
+  height: 2px;
+  background: currentColor;
+  box-shadow:
+    0 5px 0 currentColor,
+    0 10px 0 currentColor;
+}
+
+.toolbar-command-align .toolbar-command-icon::after {
+  top: 8px;
+  right: 2px;
+  width: 11px;
+  height: 2px;
+  background: transparent;
+}
+
+.toolbar-command-border .toolbar-command-icon::before {
+  inset: 2px;
+  border: 2px solid currentColor;
+  border-radius: 5px;
+}
+
+.toolbar-command-delete .toolbar-command-icon::before {
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  top: 6px;
+  border: 1.5px solid currentColor;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+.toolbar-command-delete .toolbar-command-icon::after {
+  left: 5px;
+  right: 5px;
+  top: 3px;
+  height: 2px;
+  background: currentColor;
+  box-shadow: 0 -3px 0 -0.5px currentColor;
 }
 
 .shape-preview {
