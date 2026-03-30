@@ -49,14 +49,15 @@ interface CanvasDocumentData {
 }
 
 interface WebviewMessage {
-  type: "ready" | "save" | "requestFilePath";
+  type: "ready" | "save" | "requestFilePath" | "requestAssetUri";
   content?: string;
   requestId?: string;
   accept?: string;
+  path?: string;
 }
 
 interface ExtensionResponseMessage {
-  type: "loadDocument" | "filePathResponse";
+  type: "loadDocument" | "filePathResponse" | "assetUriResponse";
   content?: string;
   requestId?: string;
   value?: string;
@@ -100,7 +101,10 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
   ): Promise<void> {
     webviewPanel.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "media")]
+      localResourceRoots: [
+        vscode.Uri.joinPath(this.extensionUri, "media"),
+        ...(vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? [])
+      ]
     };
 
     webviewPanel.webview.html = this.getHtmlForWebview(webviewPanel.webview);
@@ -139,6 +143,9 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
             break;
           case "requestFilePath":
             await respondWithFilePath(webviewPanel.webview, message);
+            break;
+          case "requestAssetUri":
+            await respondWithAssetUri(webviewPanel.webview, message);
             break;
         }
       }
@@ -200,6 +207,32 @@ async function respondWithFilePath(
   };
 
   await webview.postMessage(response);
+}
+
+async function respondWithAssetUri(
+  webview: vscode.Webview,
+  message: WebviewMessage
+): Promise<void> {
+  if (!message.path) {
+    await webview.postMessage({
+      type: "assetUriResponse",
+      requestId: message.requestId
+    } satisfies ExtensionResponseMessage);
+    return;
+  }
+
+  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  const fileUri = workspaceFolder
+    ? vscode.Uri.joinPath(workspaceFolder.uri, message.path)
+    : undefined;
+
+  const value = fileUri ? webview.asWebviewUri(fileUri).toString() : undefined;
+
+  await webview.postMessage({
+    type: "assetUriResponse",
+    requestId: message.requestId,
+    value
+  } satisfies ExtensionResponseMessage);
 }
 
 async function saveDocument(

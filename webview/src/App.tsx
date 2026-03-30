@@ -4,11 +4,9 @@ import {
   BackgroundVariant,
   Connection,
   ConnectionMode,
-  Controls,
   Edge,
   Handle,
   MarkerType,
-  MiniMap,
   Node,
   NodeProps,
   Position,
@@ -78,8 +76,18 @@ interface VscodeApi {
   getState(): unknown;
 }
 
-interface PendingFileRequest {
+interface PendingRequest {
   resolve: (value?: string) => void;
+}
+
+interface CanvasNodeViewData extends CanvasNodeData {
+  assetUri?: string;
+  draftText?: string;
+  isEditing?: boolean;
+  onStartEdit?: () => void;
+  onDraftChange?: (value: string) => void;
+  onCommitEdit?: () => void;
+  onCancelEdit?: () => void;
 }
 
 declare global {
@@ -112,6 +120,8 @@ const borderOptions: SogoBorder[] = ["none", "subtle", "strong"];
 const alignOptions: SogoTextAlign[] = ["left", "center", "right"];
 const backgroundOptions: SogoBackground[] = ["plain", "dots", "grid"];
 
+const pendingRequests = new Map<string, PendingRequest>();
+
 function createEmptyDocument(): CanvasDocumentData {
   return {
     nodes: [],
@@ -134,7 +144,7 @@ function createNode(
     x: position.x,
     y: position.y,
     width: type === "group" ? 420 : 320,
-    height: type === "group" ? 220 : type === "image" ? 220 : 120,
+    height: type === "group" ? 220 : type === "image" ? 240 : 120,
     color: "default",
     sogo: {
       shape: type === "group" ? "rect" : "rounded",
@@ -164,6 +174,28 @@ function createNode(
   return { ...base, ...partial };
 }
 
+function persistNodeData(input: unknown): CanvasNodeData {
+  const node = input as CanvasNodeData;
+  return {
+    id: node.id,
+    type: node.type,
+    x: node.x,
+    y: node.y,
+    width: node.width,
+    height: node.height,
+    text: node.text,
+    label: node.label,
+    color: node.color,
+    file: node.file,
+    url: node.url,
+    sogo: {
+      shape: node.sogo?.shape,
+      border: node.sogo?.border,
+      textAlign: node.sogo?.textAlign
+    }
+  };
+}
+
 function nodeToFlowNode(node: CanvasNodeData): Node {
   return {
     id: node.id,
@@ -172,11 +204,9 @@ function nodeToFlowNode(node: CanvasNodeData): Node {
       x: node.x,
       y: node.y
     },
-    data: node as unknown as Record<string, unknown>,
+    data: persistNodeData(node) as unknown as Record<string, unknown>,
     width: node.width,
     height: node.height,
-    sourcePosition: Position.Right,
-    targetPosition: Position.Left,
     selectable: true,
     draggable: true
   };
@@ -188,8 +218,13 @@ function edgeToFlowEdge(edge: CanvasEdgeData): Edge {
     source: edge.fromNode,
     target: edge.toNode,
     type: "bezier",
+    style: {
+      stroke: "var(--canvas-edge)",
+      strokeWidth: 2
+    },
     markerEnd: {
-      type: MarkerType.ArrowClosed
+      type: MarkerType.ArrowClosed,
+      color: "var(--canvas-edge)"
     }
   };
 }
@@ -204,7 +239,7 @@ function flowToDocument(
 
   return {
     nodes: nodes.map((node) => {
-      const nodeData = node.data as unknown as CanvasNodeData;
+      const nodeData = persistNodeData(node.data);
       const prev = previousNodeMap.get(node.id) ?? nodeData;
       return {
         ...prev,
@@ -261,7 +296,7 @@ function backgroundVariant(mode: SogoBackground): BackgroundVariant | undefined 
   }
 }
 
-function requestPath(accept?: "image"): Promise<string | undefined> {
+function requestFilePath(accept?: "image"): Promise<string | undefined> {
   return new Promise((resolve) => {
     if (!vscode) {
       const fallback = window.prompt(
@@ -281,64 +316,136 @@ function requestPath(accept?: "image"): Promise<string | undefined> {
   });
 }
 
-const pendingRequests = new Map<string, PendingFileRequest>();
+function requestAssetUri(path: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    if (!vscode) {
+      resolve(undefined);
+      return;
+    }
+
+    const requestId = crypto.randomUUID();
+    pendingRequests.set(requestId, { resolve });
+    vscode.postMessage({
+      type: "requestAssetUri",
+      requestId,
+      path
+    });
+  });
+}
+
+function displayTitle(node: CanvasNodeData): string {
+  if (node.type === "text") {
+    return node.text ?? "Untitled";
+  }
+  return node.label ?? "Untitled";
+}
+
+function fileBasename(path?: string): string {
+  if (!path) {
+    return "file";
+  }
+  return path.split("/").pop() ?? path;
+}
+
+function fileExtension(path?: string): string {
+  const name = fileBasename(path);
+  const parts = name.split(".");
+  return parts.length > 1 ? parts.pop() ?? "" : "";
+}
+
+function canInlineEdit(type: CanvasNodeType): boolean {
+  return type === "text" || type === "group";
+}
 
 function CanvasNodeComponent({ data, selected }: NodeProps) {
-  const nodeData = data as unknown as CanvasNodeData;
+  const nodeData = data as unknown as CanvasNodeViewData;
   const shape = nodeData.sogo?.shape ?? "rounded";
   const border = nodeData.sogo?.border ?? "subtle";
   const align = nodeData.sogo?.textAlign ?? "left";
   const color = nodeData.color ?? "default";
+  const ext = fileExtension(nodeData.file).toUpperCase();
 
   return (
     <div
       className={[
         "canvas-node",
+        `node-kind-${nodeData.type}`,
         `shape-${shape}`,
         `border-${border}`,
         `tone-${color}`,
-        selected ? "is-selected" : ""
+        selected ? "is-selected" : "",
+        nodeData.isEditing ? "is-editing" : ""
       ].join(" ")}
       style={{
         textAlign: align
       }}
     >
       <Handle
-        id="top"
-        className="node-handle node-handle-top"
-        type="source"
-        position={Position.Top}
-      />
-      <Handle
-        id="right"
-        className="node-handle node-handle-right"
-        type="source"
-        position={Position.Right}
-      />
-      <Handle
-        id="bottom"
-        className="node-handle node-handle-bottom"
-        type="source"
-        position={Position.Bottom}
-      />
-      <Handle
-        id="left"
+        id="target-left"
         className="node-handle node-handle-left"
         type="target"
         position={Position.Left}
       />
+      <Handle
+        id="source-right"
+        className="node-handle node-handle-right"
+        type="source"
+        position={Position.Right}
+      />
       <div className="node-type-label">{nodeData.type}</div>
-      <div className="node-content">
-        {nodeData.type === "text" ? nodeData.text : nodeData.label}
-      </div>
+
+      {nodeData.type === "image" && nodeData.assetUri ? (
+        <div className="node-image-preview">
+          <img src={nodeData.assetUri} alt={nodeData.label ?? "Image node"} />
+        </div>
+      ) : null}
+
+      {nodeData.type === "file" ? (
+        <div className="node-file-header">
+          <div className="node-file-chip">{ext || "FILE"}</div>
+          <div className="node-file-title">{fileBasename(nodeData.file)}</div>
+        </div>
+      ) : null}
+
+      {nodeData.isEditing ? (
+        <textarea
+          autoFocus
+          className="node-editor"
+          value={nodeData.draftText ?? ""}
+          onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
+          onBlur={() => nodeData.onCommitEdit?.()}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              nodeData.onCancelEdit?.();
+            }
+            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+              event.preventDefault();
+              nodeData.onCommitEdit?.();
+            }
+          }}
+        />
+      ) : (
+        <div
+          className="node-content"
+          onDoubleClick={() => {
+            if (canInlineEdit(nodeData.type)) {
+              nodeData.onStartEdit?.();
+            }
+          }}
+        >
+          {displayTitle(nodeData)}
+        </div>
+      )}
+
       {nodeData.file ? <div className="node-meta">{nodeData.file}</div> : null}
     </div>
   );
 }
 
-  const nodeTypes = {
-    canvasNode: CanvasNodeComponent
-  };
+const nodeTypes = {
+  canvasNode: CanvasNodeComponent
+};
 
 export default function App() {
   const [documentState, setDocumentState] = useState<CanvasDocumentData>(
@@ -348,12 +455,40 @@ export default function App() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [activePanel, setActivePanel] = useState<ToolbarPanel>("insert");
+  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
+  const [draftText, setDraftText] = useState("");
+  const [assetUris, setAssetUris] = useState<Record<string, string>>({});
+  const pendingAssetPathsRef = useRef<Set<string>>(new Set());
   const saveTimerRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
 
-  const selectedNode = useMemo(
-    () => documentState.nodes.find((node) => node.id === selectedNodeId) ?? null,
-    [documentState.nodes, selectedNodeId]
+  const selectedNode = useMemo(() => {
+    const selected = nodes.find((node) => node.id === selectedNodeId);
+    return selected ? persistNodeData(selected.data) : null;
+  }, [nodes, selectedNodeId]);
+
+  const renderedNodes = useMemo(
+    () =>
+      nodes.map((node) => {
+        const base = persistNodeData(node.data);
+        const viewData: CanvasNodeViewData = {
+          ...base,
+          assetUri: base.file ? assetUris[base.file] : undefined,
+          draftText,
+          isEditing: editingNodeId === node.id,
+          onStartEdit: () => startEditingNode(node.id),
+          onDraftChange: setDraftText,
+          onCommitEdit: commitEdit,
+          onCancelEdit: cancelEdit
+        };
+
+        return {
+          ...node,
+          draggable: editingNodeId === null || editingNodeId !== node.id,
+          data: viewData as unknown as Record<string, unknown>
+        };
+      }),
+    [nodes, assetUris, editingNodeId, draftText]
   );
 
   useEffect(() => {
@@ -374,7 +509,8 @@ export default function App() {
       }
 
       if (
-        message.type === "filePathResponse" &&
+        (message.type === "filePathResponse" ||
+          message.type === "assetUriResponse") &&
         message.requestId &&
         pendingRequests.has(message.requestId)
       ) {
@@ -425,43 +561,118 @@ export default function App() {
     }
   }, [selectedNodeId]);
 
+  useEffect(() => {
+    const imagePaths = nodes
+      .map((node) => persistNodeData(node.data))
+      .filter((node) => node.type === "image" && node.file)
+      .map((node) => node.file!) ;
+
+    for (const path of imagePaths) {
+      if (assetUris[path] || pendingAssetPathsRef.current.has(path)) {
+        continue;
+      }
+
+      pendingAssetPathsRef.current.add(path);
+      void requestAssetUri(path).then((value) => {
+        pendingAssetPathsRef.current.delete(path);
+        if (!value) {
+          return;
+        }
+        setAssetUris((current) => ({
+          ...current,
+          [path]: value
+        }));
+      });
+    }
+  }, [nodes, assetUris]);
+
   function syncDocument(next: CanvasDocumentData): void {
     setDocumentState(next);
     setNodes(next.nodes.map(nodeToFlowNode));
     setEdges(next.edges.map(edgeToFlowEdge));
   }
 
+  function patchNode(
+    nodeId: string,
+    updater: (node: CanvasNodeData) => CanvasNodeData
+  ): void {
+    setNodes((current) =>
+      current.map((node) =>
+        node.id === nodeId
+          ? {
+              ...node,
+              data: updater(persistNodeData(node.data)) as unknown as Record<
+                string,
+                unknown
+              >
+            }
+          : node
+      )
+    );
+  }
+
   function updateSelectedNode(
     updater: (node: CanvasNodeData) => CanvasNodeData
   ): void {
-    if (!selectedNode) {
+    if (!selectedNodeId) {
+      return;
+    }
+    patchNode(selectedNodeId, updater);
+  }
+
+  function startEditingNode(nodeId: string): void {
+    const node = nodes.find((item) => item.id === nodeId);
+    if (!node) {
+      return;
+    }
+    const persisted = persistNodeData(node.data);
+    if (!canInlineEdit(persisted.type)) {
+      return;
+    }
+    setEditingNodeId(nodeId);
+    setDraftText(displayTitle(persisted));
+  }
+
+  function commitEdit(): void {
+    if (!editingNodeId) {
       return;
     }
 
-    const next = {
-      ...documentState,
-      nodes: documentState.nodes.map((node) =>
-        node.id === selectedNode.id ? updater(node) : node
-      )
-    };
+    const node = nodes.find((item) => item.id === editingNodeId);
+    if (!node) {
+      setEditingNodeId(null);
+      return;
+    }
 
-    syncDocument(next);
+    const persisted = persistNodeData(node.data);
+    patchNode(editingNodeId, (current) =>
+      current.type === "text"
+        ? { ...current, text: draftText }
+        : { ...current, label: draftText }
+    );
+
+    if (selectedNodeId !== persisted.id) {
+      setSelectedNodeId(persisted.id);
+    }
+
+    setEditingNodeId(null);
+    setDraftText("");
+  }
+
+  function cancelEdit(): void {
+    setEditingNodeId(null);
+    setDraftText("");
   }
 
   function addNodeOfType(type: CanvasNodeType, partial?: Partial<CanvasNodeData>) {
-    const offset = documentState.nodes.length * 24;
+    const offset = nodes.length * 24;
     const node = createNode(type, { x: 180 + offset, y: 140 + offset }, partial);
-    const next = {
-      ...documentState,
-      nodes: [...documentState.nodes, node]
-    };
-
-    syncDocument(next);
+    setNodes((current) => [...current, nodeToFlowNode(node)]);
     setSelectedNodeId(node.id);
   }
 
   async function addFileNode(): Promise<void> {
-    const file = await requestPath();
+    const file = await requestFilePath();
     if (!file) {
       return;
     }
@@ -469,16 +680,14 @@ export default function App() {
   }
 
   async function addImageNode(): Promise<void> {
-    const file = await requestPath("image");
+    const file = await requestFilePath("image");
     if (!file) {
       return;
     }
     addNodeOfType("image", { file, label: file });
   }
 
-  function handleDoubleClick(
-    _event: React.MouseEvent<Element, MouseEvent>
-  ): void {
+  function handlePaneDoubleClick(): void {
     addNodeOfType("text");
   }
 
@@ -493,8 +702,13 @@ export default function App() {
           ...connection,
           id: crypto.randomUUID(),
           type: "bezier",
+          style: {
+            stroke: "var(--canvas-edge)",
+            strokeWidth: 2
+          },
           markerEnd: {
-            type: MarkerType.ArrowClosed
+            type: MarkerType.ArrowClosed,
+            color: "var(--canvas-edge)"
           }
         },
         current
@@ -503,20 +717,16 @@ export default function App() {
   }
 
   function handleDeleteSelection(): void {
-    if (!selectedNodeId) {
+    if (!selectedNodeId || editingNodeId) {
       return;
     }
 
-    const next = {
-      ...documentState,
-      nodes: documentState.nodes.filter((node) => node.id !== selectedNodeId),
-      edges: documentState.edges.filter(
-        (edge) =>
-          edge.fromNode !== selectedNodeId && edge.toNode !== selectedNodeId
+    setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
+    setEdges((current) =>
+      current.filter(
+        (edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId
       )
-    };
-
-    syncDocument(next);
+    );
     setSelectedNodeId(null);
   }
 
@@ -526,30 +736,67 @@ export default function App() {
         handleDeleteSelection();
       }
 
-      if (event.key === "Enter" && selectedNode?.type === "text") {
-        const next = window.prompt("Edit card text", selectedNode.text ?? "");
-        if (typeof next === "string") {
-          updateSelectedNode((node) => ({ ...node, text: next }));
+      if (event.key === "Enter" && selectedNode && !editingNodeId) {
+        if (canInlineEdit(selectedNode.type)) {
+          event.preventDefault();
+          startEditingNode(selectedNode.id);
         }
+      }
+
+      if (event.key === "Escape" && editingNodeId) {
+        event.preventDefault();
+        cancelEdit();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedNode, documentState]);
+  }, [selectedNode, editingNodeId, nodes, selectedNodeId]);
 
   return (
     <div
       className={`app-shell background-${documentState.sogo?.background ?? "dots"}`}
     >
       <ReactFlow
-        nodes={nodes}
+        nodes={renderedNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         fitView
         minZoom={0.2}
         maxZoom={2.5}
         connectionMode={ConnectionMode.Loose}
+        nodesDraggable={editingNodeId === null}
+        elementsSelectable
+        defaultEdgeOptions={{
+          type: "bezier",
+          style: {
+            stroke: "var(--canvas-edge)",
+            strokeWidth: 2
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: "var(--canvas-edge)"
+          }
+        }}
+        onDoubleClick={(event) => {
+          const target = event.target as HTMLElement;
+          if (target.closest(".react-flow__node")) {
+            return;
+          }
+          handlePaneDoubleClick();
+        }}
+        onPaneClick={() => {
+          if (editingNodeId) {
+            commitEdit();
+          }
+          setSelectedNodeId(null);
+        }}
+        onNodeDoubleClick={(_, node) => {
+          const persisted = persistNodeData(node.data);
+          if (canInlineEdit(persisted.type)) {
+            startEditingNode(node.id);
+          }
+        }}
         onNodesChange={(changes) =>
           setNodes((current) => applyNodeChanges(changes, current))
         }
@@ -557,7 +804,6 @@ export default function App() {
           setEdges((current) => applyEdgeChanges(changes, current))
         }
         onConnect={handleConnect}
-        onDoubleClick={handleDoubleClick}
         onSelectionChange={(selection) => {
           setSelectedNodeId(selection.nodes[0]?.id ?? null);
         }}
@@ -570,13 +816,6 @@ export default function App() {
             color="var(--canvas-grid-color)"
           />
         ) : null}
-        <MiniMap
-          pannable
-          zoomable
-          nodeColor="var(--canvas-minimap-node)"
-          maskColor="rgba(4, 7, 15, 0.56)"
-        />
-        <Controls position="top-left" showInteractive={false} />
       </ReactFlow>
 
       <div className="toolbar-stack">
