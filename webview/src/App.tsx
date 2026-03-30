@@ -456,6 +456,7 @@ const nodeTypes = {
 };
 
 export default function App() {
+  const shellRef = useRef<HTMLDivElement>(null);
   const [documentState, setDocumentState] = useState<CanvasDocumentData>(
     createEmptyDocument()
   );
@@ -469,6 +470,10 @@ export default function App() {
   const pendingAssetPathsRef = useRef<Set<string>>(new Set());
   const saveTimerRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
+  const [toolbarPosition, setToolbarPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
 
   const selectedNode = useMemo(() => {
     const selected = nodes.find((node) => node.id === selectedNodeId);
@@ -570,6 +575,38 @@ export default function App() {
       setActivePanel("insert");
     }
   }, [selectedNodeId]);
+
+  useEffect(() => {
+    if (!selectedNodeId || !shellRef.current) {
+      setToolbarPosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      const selectedElement = document.querySelector(
+        ".react-flow__node.selected"
+      ) as HTMLElement | null;
+
+      if (!shellRect || !selectedElement) {
+        setToolbarPosition(null);
+        return;
+      }
+
+      const rect = selectedElement.getBoundingClientRect();
+      setToolbarPosition({
+        left: rect.left - shellRect.left + rect.width / 2,
+        top: rect.top - shellRect.top - 18
+      });
+    };
+
+    const frame = requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [selectedNodeId, nodes, editingNodeId]);
 
   useEffect(() => {
     const imagePaths = nodes
@@ -765,12 +802,14 @@ export default function App() {
 
   return (
     <div
+      ref={shellRef}
       className={`app-shell background-${documentState.sogo?.background ?? "dots"}`}
     >
       <ReactFlow
         nodes={renderedNodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        proOptions={{ hideAttribution: true }}
         fitView
         minZoom={0.2}
         maxZoom={2.5}
@@ -828,25 +867,220 @@ export default function App() {
         ) : null}
       </ReactFlow>
 
+      {showSelectionTools && toolbarPosition ? (
+        <div
+          className="contextual-toolbar-stack"
+          style={{
+            left: toolbarPosition.left,
+            top: toolbarPosition.top
+          }}
+        >
+          <div className="contextual-toolbar">
+            <div className="toolbar-group">
+              <button
+                title="Delete"
+                aria-label="Delete"
+                className="toolbar-command toolbar-command-delete"
+                onClick={handleDeleteSelection}
+              >
+                <span className="toolbar-command-icon" />
+              </button>
+              <button
+                title="Color"
+                aria-label="Color"
+                className={[
+                  "toolbar-command",
+                  "toolbar-command-color",
+                  activePanel === "color" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => setActivePanel("color")}
+              >
+                <span className="toolbar-command-icon" />
+              </button>
+              <button
+                title="Shape"
+                aria-label="Shape"
+                className={[
+                  "toolbar-command",
+                  "toolbar-command-shape",
+                  activePanel === "shape" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => setActivePanel("shape")}
+              >
+                <span className="toolbar-command-icon" />
+              </button>
+              <button
+                title="Align"
+                aria-label="Align"
+                className={[
+                  "toolbar-command",
+                  "toolbar-command-align",
+                  activePanel === "align" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => setActivePanel("align")}
+              >
+                <span className="toolbar-command-icon" />
+              </button>
+              <button
+                title="Border"
+                aria-label="Border"
+                className={[
+                  "toolbar-command",
+                  "toolbar-command-border",
+                  activePanel === "border" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => setActivePanel("border")}
+              >
+                <span className="toolbar-command-icon" />
+              </button>
+            </div>
+          </div>
+
+          {activePanel !== "insert" && activePanel !== "background" ? (
+            <div className="contextual-tray">
+              {activePanel === "color" && selectedNode ? (
+                <div className="toolbar-group">
+                  {colorOptions.map((color) => (
+                    <button
+                      key={color}
+                      className={[
+                        "swatch-button",
+                        selectedNode.color === color ? "is-active" : ""
+                      ].join(" ")}
+                      onClick={() =>
+                        updateSelectedNode((node) => ({ ...node, color }))
+                      }
+                      title={color}
+                    >
+                      <span className={`color-swatch color-swatch-${color}`} />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {activePanel === "shape" && selectedNode ? (
+                <div className="toolbar-group">
+                  {shapeOptions.map((shape) => (
+                    <button
+                      key={shape}
+                      className={[
+                        "shape-button",
+                        (selectedNode.sogo?.shape ?? "rounded") === shape
+                          ? "is-active"
+                          : ""
+                      ].join(" ")}
+                      onClick={() =>
+                        updateSelectedNode((node) => ({
+                          ...node,
+                          sogo: {
+                            ...node.sogo,
+                            shape
+                          }
+                        }))
+                      }
+                      title={shape}
+                    >
+                      <span className={`shape-preview shape-preview-${shape}`} />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {activePanel === "border" && selectedNode ? (
+                <div className="toolbar-group">
+                  {borderOptions.map((border) => (
+                    <button
+                      key={border}
+                      className={[
+                        "tray-button",
+                        "tray-button-compact",
+                        (selectedNode.sogo?.border ?? "subtle") === border
+                          ? "is-active"
+                          : ""
+                      ].join(" ")}
+                      onClick={() =>
+                        updateSelectedNode((node) => ({
+                          ...node,
+                          sogo: {
+                            ...node.sogo,
+                            border
+                          }
+                        }))
+                      }
+                    >
+                      {border}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
+              {activePanel === "align" && selectedNode ? (
+                <div className="toolbar-group">
+                  {alignOptions.map((align) => (
+                    <button
+                      key={align}
+                      className={[
+                        "align-button",
+                        (selectedNode.sogo?.textAlign ?? "left") === align
+                          ? "is-active"
+                          : ""
+                      ].join(" ")}
+                      onClick={() =>
+                        updateSelectedNode((node) => ({
+                          ...node,
+                          sogo: {
+                            ...node.sogo,
+                            textAlign: align
+                          }
+                        }))
+                      }
+                      title={align}
+                    >
+                      <span className={`align-preview align-preview-${align}`}>
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="toolbar-stack">
         <div className="toolbar-tray">
           {activePanel === "insert" ? (
             <div className="toolbar-group">
-              <button className="tray-button" onClick={() => addNodeOfType("text")}>
+              <button
+                className="tray-button"
+                onClick={() => addNodeOfType("text")}
+                title="Text"
+              >
                 <span className="tray-glyph tray-glyph-text" />
-                <span>Text</span>
               </button>
-              <button className="tray-button" onClick={() => addNodeOfType("group")}>
+              <button
+                className="tray-button"
+                onClick={() => addNodeOfType("group")}
+                title="Group"
+              >
                 <span className="tray-glyph tray-glyph-group" />
-                <span>Group</span>
               </button>
-              <button className="tray-button" onClick={addFileNode}>
+              <button
+                className="tray-button"
+                onClick={addFileNode}
+                title="File"
+              >
                 <span className="tray-glyph tray-glyph-file" />
-                <span>File</span>
               </button>
-              <button className="tray-button" onClick={addImageNode}>
+              <button
+                className="tray-button"
+                onClick={addImageNode}
+                title="Image"
+              >
                 <span className="tray-glyph tray-glyph-image" />
-                <span>Image</span>
               </button>
             </div>
           ) : null}
@@ -1012,74 +1246,6 @@ export default function App() {
               <span className="toolbar-command-icon" />
             </button>
           </div>
-
-          {showSelectionTools ? (
-            <>
-              <div className="toolbar-divider" />
-              <div className="toolbar-group">
-                <button
-                  title="Color"
-                  aria-label="Color"
-                  className={[
-                    "toolbar-command",
-                    "toolbar-command-color",
-                    activePanel === "color" ? "is-active" : ""
-                  ].join(" ")}
-                  onClick={() => setActivePanel("color")}
-                >
-                  <span className="toolbar-command-icon" />
-                </button>
-                <button
-                  title="Shape"
-                  aria-label="Shape"
-                  className={[
-                    "toolbar-command",
-                    "toolbar-command-shape",
-                    activePanel === "shape" ? "is-active" : ""
-                  ].join(" ")}
-                  onClick={() => setActivePanel("shape")}
-                >
-                  <span className="toolbar-command-icon" />
-                </button>
-                <button
-                  title="Align"
-                  aria-label="Align"
-                  className={[
-                    "toolbar-command",
-                    "toolbar-command-align",
-                    activePanel === "align" ? "is-active" : ""
-                  ].join(" ")}
-                  onClick={() => setActivePanel("align")}
-                >
-                  <span className="toolbar-command-icon" />
-                </button>
-                <button
-                  title="Border"
-                  aria-label="Border"
-                  className={[
-                    "toolbar-command",
-                    "toolbar-command-border",
-                    activePanel === "border" ? "is-active" : ""
-                  ].join(" ")}
-                  onClick={() => setActivePanel("border")}
-                >
-                  <span className="toolbar-command-icon" />
-                </button>
-              </div>
-
-              <div className="toolbar-divider" />
-              <div className="toolbar-group">
-                <button
-                  title="Delete"
-                  aria-label="Delete"
-                  className="toolbar-command toolbar-command-delete"
-                  onClick={handleDeleteSelection}
-                >
-                  <span className="toolbar-command-icon" />
-                </button>
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
     </div>
