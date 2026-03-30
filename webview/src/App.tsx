@@ -151,11 +151,11 @@ function createNode(
   };
 
   if (type === "text") {
-    base.text = "New card";
+    base.text = "";
   }
 
   if (type === "group") {
-    base.label = "New group";
+    base.label = "";
   }
 
   if (type === "file") {
@@ -454,6 +454,13 @@ function ToolbarIcon({ name }: { name: string }) {
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <rect x="5" y="7" width="14" height="10" rx="3" />
+        </svg>
+      );
+    case "edit":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 18l3.5-.5L18 9l-3-3-8.5 8.5L6 18Z" />
+          <path d="M13.5 7.5l3 3" />
         </svg>
       );
     case "align":
@@ -828,6 +835,10 @@ export default function App() {
     setNodes((current) => [...current, nodeToFlowNode(node)]);
     setSelectedNodeId(node.id);
     setBottomPanel(null);
+    if (canInlineEdit(type)) {
+      setEditingNodeId(node.id);
+      setDraftText(displayTitle(node));
+    }
   }
 
   async function addFileNode(): Promise<void> {
@@ -971,10 +982,11 @@ export default function App() {
       >
         {documentState.sogo?.background !== "plain" ? (
           <Background
+            key={documentState.sogo?.background ?? "dots"}
             variant={backgroundVariant(documentState.sogo?.background ?? "dots")}
-            gap={documentState.sogo?.background === "dots" ? 34 : 32}
-            size={documentState.sogo?.background === "dots" ? 1.5 : 1}
-            color="var(--canvas-grid-color)"
+            gap={documentState.sogo?.background === "dots" ? 30 : 44}
+            size={documentState.sogo?.background === "dots" ? 2 : 1.2}
+            color="color-mix(in srgb, var(--canvas-grid-color) 160%, transparent)"
           />
         ) : null}
       </ReactFlow>
@@ -1019,6 +1031,16 @@ export default function App() {
               >
                 <ToolbarIcon name="shape" />
               </button>
+              {selectedNode && canInlineEdit(selectedNode.type) ? (
+                <button
+                  title="Edit text"
+                  aria-label="Edit text"
+                  className="toolbar-command"
+                  onClick={() => startEditingNode(selectedNode.id)}
+                >
+                  <ToolbarIcon name="edit" />
+                </button>
+              ) : null}
               <button
                 title="Align"
                 aria-label="Align"

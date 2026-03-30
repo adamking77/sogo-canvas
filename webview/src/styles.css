@@ -87,7 +87,7 @@ body {
   min-height: 72px;
   padding: 14px 18px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   background: var(--node-fill);
   color: var(--canvas-text);
   border: 1px solid color-mix(in srgb, var(--node-accent) 72%, transparent);
@@ -287,13 +287,14 @@ body {
 
 .node-handle {
   position: absolute;
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--canvas-bg) 40%, var(--canvas-accent) 60%);
   border: 1px solid color-mix(in srgb, var(--canvas-accent) 78%, white 16%);
   opacity: 0;
   transition: opacity 120ms ease;
+  z-index: 4;
 }
 
 .canvas-node:hover .node-handle,
@@ -307,8 +308,8 @@ body {
 }
 
 .node-handle-right {
-  top: calc(50% - 6px);
-  right: -7px;
+  top: calc(50% - 7px);
+  right: -8px;
 }
 
 .node-handle-bottom {
@@ -317,8 +318,8 @@ body {
 }
 
 .node-handle-left {
-  top: calc(50% - 6px);
-  left: -7px;
+  top: calc(50% - 7px);
+  left: -8px;
 }
 
 .toolbar-stack {
