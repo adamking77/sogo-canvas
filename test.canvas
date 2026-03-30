@@ -1,0 +1,400 @@
+{
+  "nodes": [
+    {
+      "id": "title",
+      "type": "text",
+      "x": 460,
+      "y": 34,
+      "width": 700,
+      "height": 96,
+      "text": "Sogo Ecosystem\nWorkspace + AI COO infrastructure",
+      "color": "cyan",
+      "sogo": {
+        "shape": "rect",
+        "border": "strong",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "local-files",
+      "type": "text",
+      "x": 630.7584952070387,
+      "y": 236.30946644927042,
+      "width": 391,
+      "height": 140,
+      "text": "Local files first\n.db.json databases + markdown vault live on the filesystem.\nSogo works on them directly; Brain syncs them when needed.",
+      "color": "green",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "group-workspace",
+      "type": "group",
+      "x": -221.95656964763165,
+      "y": 236.12039945974044,
+      "width": 640,
+      "height": 610,
+      "label": "Workspace Products",
+      "color": "cyan",
+      "sogo": {
+        "shape": "rect",
+        "border": "subtle",
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "shared-engine",
+      "type": "text",
+      "x": -190.32463736540785,
+      "y": 324.6037619824034,
+      "width": 248,
+      "height": 126,
+      "text": "Shared DB contract\n.db.json + sogo-db-core\nSame database engine across Sogo products.",
+      "color": "green",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "desktop",
+      "type": "text",
+      "x": -190.32463736540785,
+      "y": 515.6037619824034,
+      "width": 248,
+      "height": 150,
+      "text": "Sogo Desktop\nDeprecating VS Code fork.\nInternal proving ground for features before they migrate to the extension.",
+      "color": "orange",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "lite",
+      "type": "text",
+      "x": 107.67536263459215,
+      "y": 354.6037619824034,
+      "width": 248,
+      "height": 170,
+      "text": "Sogo Lite\nPrimary product.\nVS Code extension + database UI.\nRuns in VS Code, Cursor, and Windsurf.",
+      "color": "cyan",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "mcp",
+      "type": "text",
+      "x": 107.67536263459215,
+      "y": 604.6037619824034,
+      "width": 248,
+      "height": 118,
+      "text": "Sogo MCP server\nLets AI agents read and write databases without app-specific API billing.",
+      "color": "yellow",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "group-distribution",
+      "type": "group",
+      "x": -54.06796165630905,
+      "y": 1073.4641996739056,
+      "width": 640,
+      "height": 263,
+      "label": "Distribution + Positioning",
+      "color": "yellow",
+      "sogo": {
+        "shape": "rect",
+        "border": "subtle",
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "site",
+      "type": "text",
+      "x": -8.067961656309052,
+      "y": 1125.4641996739056,
+      "width": 248,
+      "height": 122,
+      "text": "Sogo Site\nLanding page + content layer.\nExplains the thesis and converts installs.",
+      "color": "yellow",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "thesis",
+      "type": "text",
+      "x": 289.9320383436909,
+      "y": 1108.4641996739056,
+      "width": 250,
+      "height": 177,
+      "text": "Agentic-centric thesis\nYour data stays where you put it.\nAI accesses work on your terms.\nYour workflow should not conform to the app.",
+      "color": "lavender",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "group-intelligence",
+      "type": "group",
+      "x": 707.0867715683262,
+      "y": 525.4462587357605,
+      "width": 430,
+      "height": 480,
+      "label": "Intelligence Layer",
+      "color": "lavender",
+      "sogo": {
+        "shape": "rect",
+        "border": "subtle",
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "brain",
+      "type": "text",
+      "x": 767.0867715683262,
+      "y": 575.6529137266954,
+      "width": 310,
+      "height": 190,
+      "text": "GenZen Brain\nAI COO infrastructure.\nVault sync, semantic search,\nportable AI identity,\nSupabase + pgvector, hosted MCP.",
+      "color": "lavender",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "brain-value",
+      "type": "text",
+      "x": 767.0867715683262,
+      "y": 821.6529137266954,
+      "width": 310,
+      "height": 114,
+      "text": "Real product value\nSogo is the workspace hook.\nBrain makes the system intelligent and packageable.",
+      "color": "green",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "group-ops",
+      "type": "group",
+      "x": 1341.3646468617328,
+      "y": 479.3170519073392,
+      "width": 300,
+      "height": 480,
+      "label": "Operations Layer",
+      "color": "orange",
+      "sogo": {
+        "shape": "rect",
+        "border": "subtle",
+        "textAlign": "left"
+      }
+    },
+    {
+      "id": "scheduler",
+      "type": "text",
+      "x": 1385.3646468617328,
+      "y": 569.3170519073392,
+      "width": 212,
+      "height": 176,
+      "text": "Scheduler\nNative OS automation.\nHeadless tasks, audits,\nnotifications,\nbudget controls.",
+      "color": "orange",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    },
+    {
+      "id": "ops-value",
+      "type": "text",
+      "x": 1385.3646468617328,
+      "y": 805.3170519073392,
+      "width": 212,
+      "height": 100,
+      "text": "Autonomous operations\nBrain supplies context.\nScheduler runs whether Sogo is open or not.",
+      "color": "yellow",
+      "sogo": {
+        "shape": "rounded",
+        "border": "subtle",
+        "textAlign": "center"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "edge-title-files",
+      "fromNode": "title",
+      "toNode": "local-files",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "cyan",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-files-engine",
+      "fromNode": "local-files",
+      "toNode": "shared-engine",
+      "fromSide": "left",
+      "toSide": "top",
+      "color": "green",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-engine-desktop",
+      "fromNode": "shared-engine",
+      "toNode": "desktop",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "green",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-engine-lite",
+      "fromNode": "shared-engine",
+      "toNode": "lite",
+      "fromSide": "right",
+      "toSide": "left",
+      "color": "green",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-desktop-lite",
+      "fromNode": "desktop",
+      "toNode": "lite",
+      "fromSide": "right",
+      "toSide": "left",
+      "color": "orange",
+      "lineStyle": "dashed",
+      "arrow": true
+    },
+    {
+      "id": "edge-lite-mcp",
+      "fromNode": "lite",
+      "toNode": "mcp",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "cyan",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-files-brain",
+      "fromNode": "local-files",
+      "toNode": "brain",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "green",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-lite-brain",
+      "fromNode": "lite",
+      "toNode": "brain",
+      "fromSide": "right",
+      "toSide": "left",
+      "color": "lavender",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-brain-value",
+      "fromNode": "brain",
+      "toNode": "brain-value",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "lavender",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-brain-scheduler",
+      "fromNode": "brain",
+      "toNode": "scheduler",
+      "fromSide": "right",
+      "toSide": "left",
+      "color": "lavender",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-files-scheduler",
+      "fromNode": "local-files",
+      "toNode": "scheduler",
+      "fromSide": "right",
+      "toSide": "top",
+      "color": "green",
+      "lineStyle": "dashed",
+      "arrow": true
+    },
+    {
+      "id": "edge-scheduler-value",
+      "fromNode": "scheduler",
+      "toNode": "ops-value",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "color": "orange",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-thesis-site",
+      "fromNode": "thesis",
+      "toNode": "site",
+      "fromSide": "left",
+      "toSide": "right",
+      "color": "yellow",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-site-lite",
+      "fromNode": "site",
+      "toNode": "lite",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "color": "yellow",
+      "lineStyle": "solid",
+      "arrow": true
+    },
+    {
+      "id": "edge-lite-brainvalue",
+      "fromNode": "mcp",
+      "toNode": "brain-value",
+      "fromSide": "right",
+      "toSide": "left",
+      "color": "cyan",
+      "lineStyle": "dashed",
+      "arrow": true
+    }
+  ],
+  "sogo": {
+    "background": "plain",
+    "snapToGrid": true
+  }
+}

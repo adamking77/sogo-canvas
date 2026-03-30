@@ -44,6 +44,7 @@ body {
   width: 100%;
   height: 100%;
   position: relative;
+  isolation: isolate;
   background:
     radial-gradient(circle at top left, rgba(112, 136, 255, 0.05), transparent 30%),
     radial-gradient(circle at bottom right, rgba(255, 196, 112, 0.04), transparent 24%),
@@ -56,30 +57,34 @@ body {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  opacity: 1;
 }
 
 .app-shell.background-dots::before {
   background-image:
     radial-gradient(
       circle,
-      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.3px,
-      transparent 2px
+      color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 16%, transparent)
+        0.8px,
+      transparent 1.6px
     );
-  background-size: 28px 28px;
+  background-size: 24px 24px;
 }
 
 .app-shell.background-grid::before {
   background-image:
     linear-gradient(
-      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.2px,
-      transparent 1.2px
+      color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 12%, transparent)
+        1px,
+      transparent 1px
     ),
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--canvas-grid-color) 240%, transparent) 1.2px,
-      transparent 1.2px
+      color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 12%, transparent)
+        1px,
+      transparent 1px
     );
-  background-size: 28px 28px;
+  background-size: 24px 24px;
 }
 
 .app-shell > * {
@@ -88,18 +93,38 @@ body {
 }
 
 .react-flow,
+.react-flow__container,
 .react-flow__renderer,
 .react-flow__viewport,
 .react-flow__pane {
-  background: transparent;
+  background: transparent !important;
 }
 
 .react-flow__pane {
-  cursor: grab;
+  cursor: default !important;
 }
 
 .react-flow__pane:active {
-  cursor: grabbing;
+  cursor: default !important;
+}
+
+.react-flow__pane.selection {
+  cursor: default !important;
+}
+
+.react-flow__node,
+.react-flow__node.selectable,
+.react-flow__node.draggable,
+.react-flow__node.draggable.dragging,
+.react-flow__pane.draggable,
+.react-flow__pane.dragging,
+.react-flow__nodesselection-rect,
+.canvas-node,
+.node-content,
+.node-file-header,
+.node-image-preview,
+.node-meta {
+  cursor: default !important;
 }
 
 .react-flow__controls,
@@ -120,9 +145,18 @@ body {
   border-bottom: none;
 }
 
+.canvas-node-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: visible;
+}
+
 .canvas-node {
   --node-accent: color-mix(in srgb, var(--canvas-text) 44%, transparent);
   --node-fill: var(--canvas-surface);
+  --node-border-width: 1px;
+  --node-border-color: color-mix(in srgb, var(--node-accent) 72%, transparent);
   width: 100%;
   height: 100%;
   min-width: 160px;
@@ -130,12 +164,27 @@ body {
   padding: 14px 18px;
   position: relative;
   overflow: visible;
-  background: var(--node-fill);
+  background: transparent;
   color: var(--canvas-text);
-  border: 1px solid color-mix(in srgb, var(--node-accent) 72%, transparent);
   transition:
     border-color 120ms ease,
     transform 120ms ease;
+}
+
+.canvas-node::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--node-fill);
+  border: var(--node-border-width) solid var(--node-border-color);
+  border-radius: inherit;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.canvas-node > * {
+  position: relative;
+  z-index: 1;
 }
 
 .node-resizer-line {
@@ -151,12 +200,11 @@ body {
 }
 
 .canvas-node.is-editing {
-  outline: 2px solid color-mix(in srgb, var(--node-accent) 36%, transparent);
-  outline-offset: 0;
+  --node-border-color: color-mix(in srgb, var(--node-accent) 82%, white 8%);
 }
 
 .canvas-node.is-selected {
-  border-color: var(--canvas-accent);
+  --node-border-color: var(--canvas-accent);
   outline: 2px solid color-mix(in srgb, var(--canvas-accent) 28%, transparent);
   outline-offset: 0;
 }
@@ -170,18 +218,28 @@ body {
 }
 
 .canvas-node.shape-diamond {
-  border-radius: 18px;
+  padding: 24px 28px;
+}
+
+.canvas-node.shape-diamond::before {
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
-  padding: 18px;
+  border: none;
+  box-shadow: inset 0 0 0 var(--node-border-width) var(--node-border-color);
 }
 
 .canvas-node.shape-parallelogram {
-  border-radius: 12px;
+  padding: 14px 24px;
+}
+
+.canvas-node.shape-parallelogram::before {
   clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
+  border: none;
+  box-shadow: inset 0 0 0 var(--node-border-width) var(--node-border-color);
 }
 
 .canvas-node.shape-circle {
   border-radius: 999px;
+  padding: 18px 22px;
 }
 
 .canvas-node.node-kind-image {
@@ -192,18 +250,29 @@ body {
   padding-top: 16px;
 }
 
+.canvas-node.node-kind-group {
+  padding-top: 20px;
+}
+
+.canvas-node.node-kind-text,
+.canvas-node.node-kind-group {
+  display: flex;
+  flex-direction: column;
+}
+
 .canvas-node.border-none {
-  border-style: solid;
-  border-color: transparent;
+  --node-border-width: 0px;
+  --node-border-color: transparent;
 }
 
 .canvas-node.border-subtle {
-  border-color: color-mix(in srgb, var(--node-accent) 58%, transparent);
+  --node-border-width: 1px;
+  --node-border-color: color-mix(in srgb, var(--node-accent) 58%, transparent);
 }
 
 .canvas-node.border-strong {
-  border-width: 2px;
-  border-color: color-mix(in srgb, var(--node-accent) 92%, white 8%);
+  --node-border-width: 2px;
+  --node-border-color: color-mix(in srgb, var(--node-accent) 92%, white 8%);
 }
 
 .canvas-node.tone-default {
@@ -254,10 +323,74 @@ body {
     );
 }
 
+.canvas-node.node-kind-group {
+  --node-fill: color-mix(in srgb, var(--node-accent) 10%, transparent);
+  --node-border-color: color-mix(in srgb, var(--node-accent) 42%, transparent);
+}
+
 .node-content {
   font-size: 15px;
   line-height: 1.45;
   white-space: pre-wrap;
+}
+
+.canvas-node.node-kind-text .node-content {
+  flex: 1 1 auto;
+  display: flex;
+  width: 100%;
+}
+
+.canvas-node.align-left .node-content {
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+.canvas-node.align-center .node-content {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.canvas-node.align-right .node-content {
+  justify-content: flex-end;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.group-title-wrap {
+  position: absolute;
+  left: 18px;
+  top: -16px;
+  z-index: 2;
+  max-width: calc(100% - 36px);
+}
+
+.group-title,
+.group-title-editor {
+  min-width: 84px;
+  max-width: 100%;
+  padding: 5px 10px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--node-accent) 52%, transparent);
+  background: color-mix(in srgb, var(--canvas-bg) 92%, transparent);
+  color: color-mix(in srgb, var(--canvas-text) 90%, transparent);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.group-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.group-title-editor {
+  display: block;
+  resize: none;
+  outline: none;
+  cursor: text;
+  font: inherit;
+  overflow: hidden;
 }
 
 .node-file-header {
@@ -315,6 +448,7 @@ body {
   font: inherit;
   line-height: 1.45;
   padding: 0;
+  cursor: text;
 }
 
 .node-meta {
@@ -336,12 +470,29 @@ body {
     opacity 120ms ease,
     transform 120ms ease;
   z-index: 4;
+  cursor: crosshair;
+  pointer-events: none;
 }
 
-.canvas-node:hover .node-handle,
-.canvas-node.is-selected .node-handle {
+.node-handle-target {
+  z-index: 3;
+}
+
+.node-handle-source {
+  z-index: 4;
+}
+
+.node-resizer-handle,
+.node-resizer-line {
+  cursor: nwse-resize;
+}
+
+.react-flow__node.selected .node-handle,
+.canvas-node.is-selected + .node-handle,
+.canvas-node.is-selected ~ .node-handle {
   opacity: 1;
   transform: scale(1);
+  pointer-events: auto;
 }
 
 .node-handle-right {
@@ -354,15 +505,25 @@ body {
   left: -8px;
 }
 
+.node-handle-top {
+  top: -8px;
+  left: calc(50% - 7px);
+}
+
+.node-handle-bottom {
+  bottom: -8px;
+  left: calc(50% - 7px);
+}
+
 .toolbar-stack {
   position: absolute;
   left: 50%;
-  bottom: 20px;
+  bottom: 16px;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   max-width: calc(100% - 40px);
 }
 
@@ -374,8 +535,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 12px;
-  border-radius: 24px;
+  padding: 7px 10px;
+  border-radius: 22px;
   border: 1px solid var(--toolbar-border);
   background: color-mix(in srgb, var(--toolbar-bg) 94%, transparent);
   backdrop-filter: blur(18px);
@@ -395,6 +556,11 @@ body {
   gap: 10px;
   z-index: 20;
   pointer-events: none;
+}
+
+.edge-toolbar-stack {
+  transform: translate(-50%, calc(-100% + 12px));
+  gap: 6px;
 }
 
 .contextual-toolbar,
@@ -424,8 +590,9 @@ body {
 }
 
 .bottom-toolbar {
-  gap: 14px;
-  padding: 12px 16px;
+  gap: 8px;
+  min-width: 336px;
+  padding: 5px 14px;
 }
 
 .toolbar-divider {
@@ -440,12 +607,23 @@ body {
 }
 
 .react-flow__edge.selected .react-flow__edge-path {
-  stroke: var(--canvas-accent);
+  stroke-width: 2.5;
+}
+
+.edge-contextual-tray {
+  min-height: 34px;
+  padding: 4px 7px;
 }
 
 .react-flow__connection-path {
-  stroke: color-mix(in srgb, var(--canvas-accent) 72%, transparent);
-  stroke-width: 2;
+  stroke: color-mix(in srgb, var(--canvas-accent) 92%, white 10%) !important;
+  stroke-width: 2.5 !important;
+  opacity: 1 !important;
+}
+
+svg.react-flow__connectionline {
+  overflow: visible;
+  z-index: 18;
 }
 
 .tray-button,
@@ -453,6 +631,7 @@ body {
 .align-button,
 .swatch-button {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -473,7 +652,6 @@ body {
 .align-button:hover,
 .swatch-button:hover {
   background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
-  border-color: var(--toolbar-border);
 }
 
 .tray-button.is-active,
@@ -583,17 +761,30 @@ body {
 
 .background-chip-dots {
   background:
-    radial-gradient(circle, var(--canvas-grid-color) 1px, transparent 1.5px),
+    radial-gradient(circle, color-mix(in srgb, var(--canvas-grid-color) 70%, transparent) 0.8px, transparent 1.6px),
     color-mix(in srgb, var(--canvas-surface) 94%, white 6%);
-  background-size: 8px 8px;
+  background-size: 7px 7px;
 }
 
 .background-chip-grid {
   background:
-    linear-gradient(var(--canvas-grid-color) 1px, transparent 1px),
-    linear-gradient(90deg, var(--canvas-grid-color) 1px, transparent 1px),
+    linear-gradient(color-mix(in srgb, var(--canvas-grid-color) 72%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--canvas-grid-color) 72%, transparent) 1px, transparent 1px),
     color-mix(in srgb, var(--canvas-surface) 94%, white 6%);
-  background-size: 8px 8px;
+  background-size: 7px 7px;
+}
+
+.snap-chip {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--canvas-text) 24%, transparent);
+  background:
+    linear-gradient(color-mix(in srgb, var(--canvas-grid-color) 86%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--canvas-grid-color) 86%, transparent) 1px, transparent 1px),
+    color-mix(in srgb, var(--canvas-surface) 90%, white 4%);
+  background-size: 6px 6px;
+  display: inline-block;
 }
 
 .swatch-button {
@@ -659,11 +850,12 @@ body {
 
 .toolbar-command {
   appearance: none;
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 12px;
@@ -678,7 +870,6 @@ body {
 
 .toolbar-command:hover {
   background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
-  border-color: var(--toolbar-border);
 }
 
 .toolbar-command.is-active {
@@ -688,8 +879,8 @@ body {
 
 .toolbar-command svg,
 .insert-button svg {
-  width: 16px;
-  height: 16px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
@@ -705,16 +896,17 @@ body {
 
 .insert-button {
   appearance: none;
+  position: relative;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 70px;
-  height: 62px;
-  padding: 8px 10px;
+  gap: 3px;
+  width: 72px;
+  height: 36px;
+  padding: 3px 8px;
   border: 1px solid transparent;
-  border-radius: 16px;
+  border-radius: 12px;
   background: transparent;
   color: var(--canvas-text);
   cursor: pointer;
@@ -725,14 +917,56 @@ body {
 }
 
 .insert-button span {
-  font-size: 11px;
+  font-size: 9px;
   line-height: 1;
   color: var(--canvas-text-muted);
 }
 
 .insert-button:hover {
   background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
-  border-color: var(--toolbar-border);
+}
+
+.toolbar-command[title]::after,
+.insert-button[title]::after,
+.tray-button[title]::after,
+.shape-button[title]::after,
+.align-button[title]::after,
+.swatch-button[title]::after {
+  content: attr(title);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%) translateY(4px);
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--canvas-bg) 92%, black 8%);
+  border: 1px solid var(--toolbar-border);
+  color: var(--canvas-text);
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
+  z-index: 50;
+}
+
+.toolbar-command[title]:hover::after,
+.toolbar-command[title]:focus-visible::after,
+.insert-button[title]:hover::after,
+.insert-button[title]:focus-visible::after,
+.tray-button[title]:hover::after,
+.tray-button[title]:focus-visible::after,
+.shape-button[title]:hover::after,
+.shape-button[title]:focus-visible::after,
+.align-button[title]:hover::after,
+.align-button[title]:focus-visible::after,
+.swatch-button[title]:hover::after,
+.swatch-button[title]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 .toolbar-command-icon {

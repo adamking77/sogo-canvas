@@ -1,9 +1,10 @@
 import * as vscode from "vscode";
 
 type SogoBackground = "plain" | "dots" | "grid";
-type SogoShape = "rounded" | "pill" | "rect" | "diamond" | "circle";
+type SogoShape = "rounded" | "rect" | "diamond" | "parallelogram" | "circle";
 type SogoBorder = "none" | "subtle" | "strong";
 type SogoTextAlign = "left" | "center" | "right";
+type EdgeLineStyle = "solid" | "dashed";
 
 type CanvasNodeType = "text" | "group" | "file" | "image";
 type CanvasSide = "top" | "right" | "bottom" | "left";
@@ -16,6 +17,7 @@ interface SogoNodeMeta {
 
 interface SogoCanvasMeta {
   background?: SogoBackground;
+  snapToGrid?: boolean;
 }
 
 interface CanvasNodeData {
@@ -40,6 +42,8 @@ interface CanvasEdgeData {
   fromSide?: CanvasSide;
   toSide?: CanvasSide;
   color?: string;
+  lineStyle?: EdgeLineStyle;
+  arrow?: boolean;
 }
 
 interface CanvasDocumentData {
@@ -68,7 +72,8 @@ function defaultCanvas(): CanvasDocumentData {
     nodes: [],
     edges: [],
     sogo: {
-      background: "dots"
+      background: "dots",
+      snapToGrid: false
     }
   };
 }
@@ -84,7 +89,8 @@ function parseCanvasDocument(raw: string): CanvasDocumentData {
     nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
     edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     sogo: {
-      background: parsed.sogo?.background ?? "dots"
+      background: parsed.sogo?.background ?? "dots",
+      snapToGrid: parsed.sogo?.snapToGrid ?? false
     }
   };
 }
@@ -240,6 +246,12 @@ async function saveDocument(
   content: string
 ): Promise<void> {
   const normalized = normalizeCanvasText(content);
+  const current = document.getText();
+
+  if (current === normalized) {
+    return;
+  }
+
   const edit = new vscode.WorkspaceEdit();
 
   edit.replace(

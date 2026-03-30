@@ -10,6 +10,8 @@ import {
   NodeProps,
   Position,
   ReactFlow,
+  PanOnScrollMode,
+  SelectionMode,
   applyEdgeChanges,
   applyNodeChanges
 } from "@xyflow/react";
@@ -19,10 +21,12 @@ type SogoBackground = "plain" | "dots" | "grid";
 type SogoShape = "rounded" | "rect" | "diamond" | "parallelogram" | "circle";
 type SogoBorder = "none" | "subtle" | "strong";
 type SogoTextAlign = "left" | "center" | "right";
+type EdgeLineStyle = "solid" | "dashed";
 type CanvasNodeType = "text" | "group" | "file" | "image";
 type CanvasSide = "top" | "right" | "bottom" | "left";
 type BottomPanel = "background" | null;
 type SelectionPanel = "color" | "shape" | "border" | "align" | null;
+type EdgePanel = "color" | null;
 
 interface SogoNodeMeta {
   shape?: SogoShape;
@@ -32,6 +36,7 @@ interface SogoNodeMeta {
 
 interface SogoCanvasMeta {
   background?: SogoBackground;
+  snapToGrid?: boolean;
 }
 
 interface CanvasNodeData {
@@ -56,6 +61,8 @@ interface CanvasEdgeData {
   fromSide?: CanvasSide;
   toSide?: CanvasSide;
   color?: string;
+  lineStyle?: EdgeLineStyle;
+  arrow?: boolean;
 }
 
 interface CanvasDocumentData {
@@ -113,6 +120,7 @@ const shapeOptions: SogoShape[] = [
 const borderOptions: SogoBorder[] = ["none", "subtle", "strong"];
 const alignOptions: SogoTextAlign[] = ["left", "center", "right"];
 const backgroundOptions: SogoBackground[] = ["plain", "dots", "grid"];
+const canvasGridSize = 24;
 
 const pendingRequests = new Map<string, PendingRequest>();
 
@@ -121,7 +129,8 @@ function createEmptyDocument(): CanvasDocumentData {
     nodes: [],
     edges: [],
     sogo: {
-      background: "dots"
+      background: "dots",
+      snapToGrid: false
     }
   };
 }
@@ -202,7 +211,8 @@ function nodeToFlowNode(node: CanvasNodeData): Node {
     data: persistNodeData(node) as unknown as Record<string, unknown>,
     style: {
       width: node.width,
-      height: node.height
+      height: node.height,
+      zIndex: node.type === "group" ? 0 : 2
     },
     selectable: true,
     draggable: true
@@ -224,21 +234,89 @@ function readDimension(value: unknown): number | undefined {
   return undefined;
 }
 
+function edgeStroke(color?: string): string {
+  switch (color) {
+    case "pink":
+      return "#f082a8";
+    case "orange":
+      return "#ffb07a";
+    case "yellow":
+      return "#f4d99b";
+    case "green":
+      return "#9fdf93";
+    case "cyan":
+      return "#7ecbdd";
+    case "lavender":
+      return "#b1b6f9";
+    case "rainbow":
+      return "#c491ff";
+    default:
+      return "var(--canvas-edge)";
+  }
+}
+
+function edgePresentation(edge: CanvasEdgeData) {
+  const stroke = edgeStroke(edge.color);
+
+  return {
+    style: {
+      stroke,
+      strokeWidth: 2,
+      strokeDasharray: edge.lineStyle === "dashed" ? "7 5" : undefined
+    },
+    markerEnd:
+      edge.arrow === false
+        ? undefined
+        : {
+            type: MarkerType.ArrowClosed,
+            color: stroke
+          }
+  };
+}
+
 function edgeToFlowEdge(edge: CanvasEdgeData): Edge {
+  const presentation = edgePresentation(edge);
   return {
     id: edge.id,
     source: edge.fromNode,
     target: edge.toNode,
-    type: "bezier",
-    style: {
-      stroke: "var(--canvas-edge)",
-      strokeWidth: 2
+    sourceHandle: edge.fromSide,
+    targetHandle: edge.toSide,
+    data: {
+      color: edge.color ?? "default",
+      lineStyle: edge.lineStyle ?? "solid",
+      arrow: edge.arrow ?? true
     },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: "var(--canvas-edge)"
-    }
+    type: "bezier",
+    style: presentation.style,
+    markerEnd: presentation.markerEnd
   };
+}
+
+function groupBounds(nodes: CanvasNodeData[]) {
+  const paddingX = 28;
+  const paddingY = 24;
+
+  const left = Math.min(...nodes.map((node) => node.x)) - paddingX;
+  const top = Math.min(...nodes.map((node) => node.y)) - paddingY;
+  const right = Math.max(...nodes.map((node) => node.x + node.width)) + paddingX;
+  const bottom = Math.max(...nodes.map((node) => node.y + node.height)) + paddingY;
+
+  return {
+    x: left,
+    y: top,
+    width: Math.max(220, right - left),
+    height: Math.max(140, bottom - top)
+  };
+}
+
+function isInsideGroup(node: CanvasNodeData, group: CanvasNodeData): boolean {
+  return (
+    node.x >= group.x &&
+    node.y >= group.y &&
+    node.x + node.width <= group.x + group.width &&
+    node.y + node.height <= group.y + group.height
+  );
 }
 
 function flowToDocument(
@@ -280,9 +358,30 @@ function flowToDocument(
         id: edge.id,
         fromNode: edge.source,
         toNode: edge.target,
-        fromSide: prev?.fromSide ?? "right",
-        toSide: prev?.toSide ?? "left",
-        color: prev?.color ?? "default"
+        fromSide:
+          (typeof edge.sourceHandle === "string"
+            ? (edge.sourceHandle as CanvasSide)
+            : undefined) ??
+          prev?.fromSide ??
+          "right",
+        toSide:
+          (typeof edge.targetHandle === "string"
+            ? (edge.targetHandle as CanvasSide)
+            : undefined) ??
+          prev?.toSide ??
+          "left",
+        color:
+          ((edge.data as { color?: string } | undefined)?.color ??
+            prev?.color ??
+            "default"),
+        lineStyle:
+          ((edge.data as { lineStyle?: EdgeLineStyle } | undefined)?.lineStyle ??
+            prev?.lineStyle ??
+            "solid"),
+        arrow:
+          (edge.data as { arrow?: boolean } | undefined)?.arrow ??
+          prev?.arrow ??
+          true
       };
     }),
     sogo: previous.sogo
@@ -304,7 +403,8 @@ function parseDocument(content: string): CanvasDocumentData {
     nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
     edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     sogo: {
-      background: parsed.sogo?.background ?? "dots"
+      background: parsed.sogo?.background ?? "dots",
+      snapToGrid: parsed.sogo?.snapToGrid ?? false
     }
   };
 }
@@ -353,6 +453,11 @@ function displayTitle(node: CanvasNodeData): string {
   return node.label ?? "Untitled";
 }
 
+function displayGroupTitle(node: CanvasNodeData): string {
+  const value = node.label?.trim();
+  return value && value.length > 0 ? value : "Untitled group";
+}
+
 function fileBasename(path?: string): string {
   if (!path) {
     return "file";
@@ -375,10 +480,9 @@ function ToolbarIcon({ name }: { name: string }) {
     case "text":
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M6 7h12" />
-          <path d="M9.5 7v10" />
-          <path d="M14.5 7v10" />
-          <path d="M7 17h10" />
+          <rect x="4.5" y="6" width="15" height="12" rx="3" />
+          <path d="M8 10h8" />
+          <path d="M8 14h5.5" />
         </svg>
       );
     case "group":
@@ -465,6 +569,21 @@ function ToolbarIcon({ name }: { name: string }) {
           <path d="M5 10h14" />
         </svg>
       );
+    case "line":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h3" />
+          <path d="M10 12h4" />
+          <path d="M16 12h3" />
+        </svg>
+      );
+    case "arrow":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 12h11" />
+          <path d="M13.5 8.5 19 12l-5.5 3.5" />
+        </svg>
+      );
     default:
       return null;
   }
@@ -480,20 +599,7 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
   const ext = fileExtension(nodeData.file).toUpperCase();
 
   return (
-    <div
-      className={[
-        "canvas-node",
-        `node-kind-${nodeData.type}`,
-        `shape-${shape}`,
-        `border-${border}`,
-        `tone-${color}`,
-        isSelected ? "is-selected" : "",
-        nodeData.isEditing ? "is-editing" : ""
-      ].join(" ")}
-      style={{
-        textAlign: align
-      }}
-    >
+    <div className="canvas-node-shell">
       <NodeResizer
         isVisible={isSelected && !nodeData.isEditing}
         minWidth={nodeData.type === "group" ? 220 : 140}
@@ -502,66 +608,155 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
         handleClassName="node-resizer-handle"
       />
       <Handle
-        id="connect-right"
+        id="top"
+        className="node-handle node-handle-top"
+        type="source"
+        position={Position.Top}
+        isConnectable
+        isConnectableStart
+        isConnectableEnd
+      />
+      <Handle
+        id="right"
         className="node-handle node-handle-right"
         type="source"
         position={Position.Right}
         isConnectable
+        isConnectableStart
+        isConnectableEnd
       />
       <Handle
-        id="connect-left"
+        id="bottom"
+        className="node-handle node-handle-bottom"
+        type="source"
+        position={Position.Bottom}
+        isConnectable
+        isConnectableStart
+        isConnectableEnd
+      />
+      <Handle
+        id="left"
         className="node-handle node-handle-left"
-        type="target"
+        type="source"
         position={Position.Left}
         isConnectable
+        isConnectableStart
+        isConnectableEnd
       />
+      <div
+        className={[
+          "canvas-node",
+          `node-kind-${nodeData.type}`,
+          `shape-${shape}`,
+          `border-${border}`,
+          `align-${align}`,
+          `tone-${color}`,
+          isSelected ? "is-selected" : "",
+          nodeData.isEditing ? "is-editing" : ""
+        ].join(" ")}
+        style={{
+          textAlign: align
+        }}
+      >
+        {nodeData.type === "group" ? (
+          <div className="group-title-wrap">
+            {nodeData.isEditing ? (
+              <textarea
+                autoFocus
+                className="group-title-editor nodrag nopan"
+                value={nodeData.draftText ?? ""}
+                rows={1}
+                onMouseDown={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={(event) => event.stopPropagation()}
+                onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
+                onBlur={() => nodeData.onCommitEdit?.()}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    event.preventDefault();
+                    nodeData.onCancelEdit?.();
+                  }
+                  if (event.key === "Enter" && !(event.metaKey || event.ctrlKey)) {
+                    event.preventDefault();
+                    nodeData.onCommitEdit?.();
+                  }
+                }}
+              />
+            ) : (
+              <div
+                className="group-title nodrag nopan"
+                onMouseDown={(event) => {
+                  if (isSelected) {
+                    event.stopPropagation();
+                  }
+                }}
+                onPointerDown={(event) => {
+                  if (isSelected) {
+                    event.stopPropagation();
+                  }
+                }}
+                onClick={() => {
+                  if (isSelected) {
+                    nodeData.onStartEdit?.();
+                  }
+                }}
+                onDoubleClick={() => nodeData.onStartEdit?.()}
+              >
+                {displayGroupTitle(nodeData)}
+              </div>
+            )}
+          </div>
+        ) : null}
 
-      {nodeData.type === "image" && nodeData.assetUri ? (
-        <div className="node-image-preview">
-          <img src={nodeData.assetUri} alt={nodeData.label ?? "Image node"} />
-        </div>
-      ) : null}
+        {nodeData.type === "image" && nodeData.assetUri ? (
+          <div className="node-image-preview">
+            <img src={nodeData.assetUri} alt={nodeData.label ?? "Image node"} />
+          </div>
+        ) : null}
 
-      {nodeData.type === "file" ? (
-        <div className="node-file-header">
-          <div className="node-file-chip">{ext || "FILE"}</div>
-          <div className="node-file-title">{fileBasename(nodeData.file)}</div>
-        </div>
-      ) : null}
+        {nodeData.type === "file" ? (
+          <div className="node-file-header">
+            <div className="node-file-chip">{ext || "FILE"}</div>
+            <div className="node-file-title">{fileBasename(nodeData.file)}</div>
+          </div>
+        ) : null}
 
-      {nodeData.isEditing ? (
-        <textarea
-          autoFocus
-          className="node-editor"
-          value={nodeData.draftText ?? ""}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
-          onBlur={() => nodeData.onCommitEdit?.()}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              nodeData.onCancelEdit?.();
-            }
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-              event.preventDefault();
-              nodeData.onCommitEdit?.();
-            }
-          }}
-        />
-      ) : (
-        <div
-          className="node-content"
-          onDoubleClick={() => {
-            if (canInlineEdit(nodeData.type)) {
-              nodeData.onStartEdit?.();
-            }
-          }}
-        >
-          {displayTitle(nodeData)}
-        </div>
-      )}
+        {nodeData.isEditing && nodeData.type !== "group" ? (
+          <textarea
+            autoFocus
+            className="node-editor nodrag nopan"
+            value={nodeData.draftText ?? ""}
+            onMouseDown={(event) => event.stopPropagation()}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+            onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
+            onBlur={() => nodeData.onCommitEdit?.()}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                nodeData.onCancelEdit?.();
+              }
+              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                event.preventDefault();
+                nodeData.onCommitEdit?.();
+              }
+            }}
+          />
+        ) : nodeData.type !== "group" ? (
+          <div
+            className="node-content"
+            onDoubleClick={() => {
+              if (canInlineEdit(nodeData.type)) {
+                nodeData.onStartEdit?.();
+              }
+            }}
+          >
+            {displayTitle(nodeData)}
+          </div>
+        ) : null}
 
-      {nodeData.file ? <div className="node-meta">{nodeData.file}</div> : null}
+        {nodeData.file ? <div className="node-meta">{nodeData.file}</div> : null}
+      </div>
     </div>
   );
 }
@@ -578,15 +773,34 @@ export default function App() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const isMarqueeSelectingRef = useRef(false);
+  const marqueeNodeIdsRef = useRef<string[]>([]);
+  const suppressNextPaneClickRef = useRef(false);
+  const suppressSelectionChangeRef = useRef(false);
+  const groupDragRef = useRef<{
+    groupId: string;
+    startX: number;
+    startY: number;
+    memberPositions: Map<string, { x: number; y: number }>;
+  } | null>(null);
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>(null);
   const [selectionPanel, setSelectionPanel] = useState<SelectionPanel>(null);
+  const [edgePanel, setEdgePanel] = useState<EdgePanel>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [assetUris, setAssetUris] = useState<Record<string, string>>({});
   const pendingAssetPathsRef = useRef<Set<string>>(new Set());
   const saveTimerRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
+  const currentContentRef = useRef(serializeDocument(createEmptyDocument()));
+  const outboundContentRef = useRef<string | null>(null);
   const [toolbarPosition, setToolbarPosition] = useState<{
+    left: number;
+    top: number;
+  } | null>(null);
+  const [edgeToolbarPosition, setEdgeToolbarPosition] = useState<{
     left: number;
     top: number;
   } | null>(null);
@@ -596,7 +810,38 @@ export default function App() {
     return selected ? persistNodeData(selected.data) : null;
   }, [nodes, selectedNodeId]);
 
-  const showSelectionTools = Boolean(selectedNode);
+  const selectedEdge = useMemo(() => {
+    const selected = edges.find((edge) => edge.id === selectedEdgeId);
+    const data = selected?.data as
+      | { color?: string; lineStyle?: EdgeLineStyle; arrow?: boolean }
+      | undefined;
+
+    if (!selected) {
+      return null;
+    }
+
+    return {
+      id: selected.id,
+      color: data?.color ?? "default",
+      lineStyle: data?.lineStyle ?? "solid",
+      arrow: data?.arrow ?? true
+    };
+  }, [edges, selectedEdgeId]);
+
+  const showSelectionTools = Boolean(selectedNode) && selectedNodeIds.length <= 1;
+  const selectedNodeIdSet = useMemo(
+    () => new Set(selectedNodeIds),
+    [selectedNodeIds]
+  );
+
+  const renderedEdges = useMemo(
+    () =>
+      edges.map((edge) => ({
+        ...edge,
+        selected: edge.id === selectedEdgeId
+      })),
+    [edges, selectedEdgeId]
+  );
 
   const renderedNodes = useMemo(
     () =>
@@ -615,11 +860,15 @@ export default function App() {
 
         return {
           ...node,
+          selected:
+            selectedNodeIdSet.has(node.id) ||
+            node.id === selectedNodeId ||
+            Boolean(node.selected),
           draggable: editingNodeId === null || editingNodeId !== node.id,
           data: viewData as unknown as Record<string, unknown>
         };
       }),
-    [nodes, assetUris, editingNodeId, draftText]
+    [nodes, assetUris, editingNodeId, draftText, selectedNodeId, selectedNodeIdSet]
   );
 
   useEffect(() => {
@@ -632,8 +881,17 @@ export default function App() {
       };
 
       if (message.type === "loadDocument" && typeof message.content === "string") {
+        if (
+          message.content === currentContentRef.current ||
+          message.content === outboundContentRef.current
+        ) {
+          outboundContentRef.current = null;
+          return;
+        }
+
         const next = parseDocument(message.content);
         loadedRef.current = true;
+        outboundContentRef.current = null;
         setDocumentState(next);
         setNodes(next.nodes.map(nodeToFlowNode));
         setEdges(next.edges.map(edgeToFlowEdge));
@@ -665,6 +923,9 @@ export default function App() {
     }
 
     const nextDocument = flowToDocument(nodes, edges, documentState);
+    const serialized = serializeDocument(nextDocument);
+
+    currentContentRef.current = serialized;
     setDocumentState(nextDocument);
 
     if (saveTimerRef.current) {
@@ -672,12 +933,17 @@ export default function App() {
     }
 
     saveTimerRef.current = window.setTimeout(() => {
+      outboundContentRef.current = serialized;
       vscode?.postMessage({
         type: "save",
-        content: serializeDocument(nextDocument)
+        content: serialized
       });
     }, 180);
-  }, [nodes, edges]);
+  }, [nodes, edges, documentState.sogo]);
+
+  useEffect(() => {
+    currentContentRef.current = serializeDocument(documentState);
+  }, [documentState]);
 
   useEffect(() => {
     if (!selectedNodeId || !shellRef.current) {
@@ -712,6 +978,38 @@ export default function App() {
   }, [selectedNodeId, nodes, editingNodeId]);
 
   useEffect(() => {
+    if (!selectedEdgeId || !shellRef.current) {
+      setEdgeToolbarPosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      const shellRect = shellRef.current?.getBoundingClientRect();
+      const selectedPath = document.querySelector(
+        `.react-flow__edge[data-id="${selectedEdgeId}"] .react-flow__edge-path`
+      ) as SVGPathElement | null;
+
+      if (!shellRect || !selectedPath) {
+        setEdgeToolbarPosition(null);
+        return;
+      }
+
+      const rect = selectedPath.getBoundingClientRect();
+      setEdgeToolbarPosition({
+        left: rect.left - shellRect.left + rect.width / 2,
+        top: rect.top - shellRect.top - 8
+      });
+    };
+
+    const frame = requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [selectedEdgeId, edges]);
+
+  useEffect(() => {
     if (selectedNodeId) {
       setSelectionPanel(null);
     }
@@ -742,10 +1040,11 @@ export default function App() {
     }
   }, [nodes, assetUris]);
 
-  function syncDocument(next: CanvasDocumentData): void {
-    setDocumentState(next);
-    setNodes(next.nodes.map(nodeToFlowNode));
-    setEdges(next.edges.map(edgeToFlowEdge));
+  function updateCanvasMeta(next: SogoCanvasMeta): void {
+    setDocumentState((current) => ({
+      ...current,
+      sogo: next
+    }));
   }
 
   function patchNode(
@@ -774,6 +1073,57 @@ export default function App() {
       return;
     }
     patchNode(selectedNodeId, updater);
+  }
+
+  function updateSelectedEdge(
+    updater: (edge: CanvasEdgeData) => CanvasEdgeData
+  ): void {
+    if (!selectedEdgeId) {
+      return;
+    }
+
+    setEdges((current) =>
+      current.map((edge) => {
+        if (edge.id !== selectedEdgeId) {
+          return edge;
+        }
+
+        const base: CanvasEdgeData = {
+          id: edge.id,
+          fromNode: edge.source,
+          toNode: edge.target,
+          fromSide:
+            typeof edge.sourceHandle === "string"
+              ? (edge.sourceHandle as CanvasSide)
+              : undefined,
+          toSide:
+            typeof edge.targetHandle === "string"
+              ? (edge.targetHandle as CanvasSide)
+              : undefined,
+          color:
+            (edge.data as { color?: string } | undefined)?.color ?? "default",
+          lineStyle:
+            (edge.data as { lineStyle?: EdgeLineStyle } | undefined)?.lineStyle ??
+            "solid",
+          arrow:
+            (edge.data as { arrow?: boolean } | undefined)?.arrow ?? true
+        };
+
+        const next = updater(base);
+        const presentation = edgePresentation(next);
+
+        return {
+          ...edge,
+          style: presentation.style,
+          markerEnd: presentation.markerEnd,
+          data: {
+            color: next.color ?? "default",
+            lineStyle: next.lineStyle ?? "solid",
+            arrow: next.arrow ?? true
+          }
+        };
+      })
+    );
   }
 
   function startEditingNode(nodeId: string): void {
@@ -825,6 +1175,7 @@ export default function App() {
     const node = createNode(type, { x: 180 + offset, y: 140 + offset }, partial);
     setNodes((current) => [...current, nodeToFlowNode(node)]);
     setSelectedNodeId(node.id);
+    setSelectedNodeIds([node.id]);
     setBottomPanel(null);
     if (canInlineEdit(type)) {
       setEditingNodeId(node.id);
@@ -834,6 +1185,38 @@ export default function App() {
 
   function toggleSelectionPanel(panel: Exclude<SelectionPanel, null>): void {
     setSelectionPanel((current) => (current === panel ? null : panel));
+  }
+
+  function createGroupFromSelection(nodeIds: string[]): void {
+    const selected = nodes
+      .filter((node) => nodeIds.includes(node.id))
+      .map((node) => persistNodeData(node.data))
+      .filter((node) => node.type !== "group");
+
+    if (selected.length < 2) {
+      return;
+    }
+
+    const bounds = groupBounds(selected);
+    const groupNode = createNode("group", { x: bounds.x, y: bounds.y }, bounds);
+
+    suppressSelectionChangeRef.current = true;
+    setNodes((current) => [
+      {
+        ...nodeToFlowNode(groupNode),
+        selected: true
+      },
+      ...current.map((node) => ({
+        ...node,
+        selected: false
+      }))
+    ]);
+    setSelectedNodeId(groupNode.id);
+    setSelectedNodeIds([groupNode.id]);
+
+    requestAnimationFrame(() => {
+      suppressSelectionChangeRef.current = false;
+    });
   }
 
   async function addFileNode(): Promise<void> {
@@ -861,20 +1244,39 @@ export default function App() {
       return;
     }
 
+    const edgeData: CanvasEdgeData = {
+      id: crypto.randomUUID(),
+      fromNode: connection.source,
+      toNode: connection.target,
+      fromSide:
+        typeof connection.sourceHandle === "string"
+          ? (connection.sourceHandle as CanvasSide)
+          : undefined,
+      toSide:
+        typeof connection.targetHandle === "string"
+          ? (connection.targetHandle as CanvasSide)
+          : undefined,
+      color: "default",
+      lineStyle: "solid",
+      arrow: true
+    };
+    const presentation = edgePresentation(edgeData);
+
     setEdges((current) =>
       addEdge(
         {
           ...connection,
-          id: crypto.randomUUID(),
-          type: "bezier",
-          style: {
-            stroke: "var(--canvas-edge)",
-            strokeWidth: 2
+          id: edgeData.id,
+          sourceHandle: edgeData.fromSide,
+          targetHandle: edgeData.toSide,
+          data: {
+            color: edgeData.color,
+            lineStyle: edgeData.lineStyle,
+            arrow: edgeData.arrow
           },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: "var(--canvas-edge)"
-          }
+          type: "bezier",
+          style: presentation.style,
+          markerEnd: presentation.markerEnd
         },
         current
       )
@@ -882,6 +1284,12 @@ export default function App() {
   }
 
   function handleDeleteSelection(): void {
+    if (selectedEdgeId) {
+      setEdges((current) => current.filter((edge) => edge.id !== selectedEdgeId));
+      setSelectedEdgeId(null);
+      return;
+    }
+
     if (!selectedNodeId || editingNodeId) {
       return;
     }
@@ -893,6 +1301,68 @@ export default function App() {
       )
     );
     setSelectedNodeId(null);
+    setSelectedNodeIds([]);
+  }
+
+  function handleNodeDragStart(_: React.MouseEvent, node: Node): void {
+    const persisted = persistNodeData(node.data);
+    if (persisted.type !== "group") {
+      groupDragRef.current = null;
+      return;
+    }
+
+    const members = nodes
+      .map((item) => persistNodeData(item.data))
+      .filter(
+        (item) => item.id !== persisted.id && item.type !== "group" && isInsideGroup(item, persisted)
+      );
+
+    groupDragRef.current = {
+      groupId: persisted.id,
+      startX: node.position.x,
+      startY: node.position.y,
+      memberPositions: new Map(
+        members.map((item) => [item.id, { x: item.x, y: item.y }])
+      )
+    };
+  }
+
+  function handleNodeDrag(_: React.MouseEvent, node: Node): void {
+    const dragState = groupDragRef.current;
+    if (!dragState || dragState.groupId !== node.id) {
+      return;
+    }
+
+    const deltaX = node.position.x - dragState.startX;
+    const deltaY = node.position.y - dragState.startY;
+
+    setNodes((current) =>
+      current.map((item) => {
+        if (item.id === node.id) {
+          return {
+            ...item,
+            position: node.position
+          };
+        }
+
+        const start = dragState.memberPositions.get(item.id);
+        if (!start) {
+          return item;
+        }
+
+        return {
+          ...item,
+          position: {
+            x: start.x + deltaX,
+            y: start.y + deltaY
+          }
+        };
+      })
+    );
+  }
+
+  function handleNodeDragStop(): void {
+    groupDragRef.current = null;
   }
 
   useEffect(() => {
@@ -925,13 +1395,22 @@ export default function App() {
     >
       <ReactFlow
         nodes={renderedNodes}
-        edges={edges}
+        edges={renderedEdges}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.2}
         maxZoom={2.5}
         connectionMode={ConnectionMode.Loose}
+        snapToGrid={documentState.sogo?.snapToGrid ?? false}
+        snapGrid={[canvasGridSize, canvasGridSize]}
+        selectionOnDrag
+        selectionKeyCode={null}
+        selectionMode={SelectionMode.Partial}
+        selectNodesOnDrag={false}
+        panOnDrag={false}
+        panOnScroll
+        panOnScrollMode={PanOnScrollMode.Free}
         nodesDraggable={editingNodeId === null}
         nodesConnectable
         elementsSelectable
@@ -946,6 +1425,10 @@ export default function App() {
             color: "var(--canvas-edge)"
           }
         }}
+        connectionLineStyle={{
+          stroke: "var(--canvas-accent)",
+          strokeWidth: 2.5
+        }}
         onDoubleClick={(event) => {
           const target = event.target as HTMLElement;
           if (target.closest(".react-flow__node")) {
@@ -954,11 +1437,33 @@ export default function App() {
           handlePaneDoubleClick();
         }}
         onPaneClick={() => {
+          if (suppressNextPaneClickRef.current) {
+            suppressNextPaneClickRef.current = false;
+            return;
+          }
+
           if (editingNodeId) {
             commitEdit();
           }
           setSelectedNodeId(null);
+          setSelectedNodeIds([]);
+          setSelectedEdgeId(null);
           setSelectionPanel(null);
+          setEdgePanel(null);
+          setBottomPanel(null);
+        }}
+        onNodeClick={(_, node) => {
+          setSelectedNodeId(node.id);
+          setSelectedNodeIds([node.id]);
+          setSelectedEdgeId(null);
+          setEdgePanel(null);
+        }}
+        onEdgeClick={(_, edge) => {
+          setSelectedEdgeId(edge.id);
+          setSelectedNodeId(null);
+          setSelectedNodeIds([]);
+          setSelectionPanel(null);
+          setEdgePanel(null);
         }}
         onNodeDoubleClick={(_, node) => {
           const persisted = persistNodeData(node.data);
@@ -966,6 +1471,9 @@ export default function App() {
             startEditingNode(node.id);
           }
         }}
+        onNodeDragStart={handleNodeDragStart}
+        onNodeDrag={handleNodeDrag}
+        onNodeDragStop={handleNodeDragStop}
         onNodesChange={(changes) =>
           setNodes((current) => applyNodeChanges(changes, current))
         }
@@ -973,8 +1481,43 @@ export default function App() {
           setEdges((current) => applyEdgeChanges(changes, current))
         }
         onConnect={handleConnect}
-        onSelectionChange={({ nodes: selectedNodes }) => {
-          setSelectedNodeId(selectedNodes[0]?.id ?? null);
+        onSelectionStart={() => {
+          isMarqueeSelectingRef.current = true;
+          marqueeNodeIdsRef.current = [];
+          setSelectedNodeId(null);
+          setSelectedEdgeId(null);
+          setSelectionPanel(null);
+          setEdgePanel(null);
+        }}
+        onSelectionChange={({ nodes: nextSelectedNodes }) => {
+          if (suppressSelectionChangeRef.current) {
+            return;
+          }
+
+          const ids = nextSelectedNodes.map((node) => node.id);
+          if (isMarqueeSelectingRef.current) {
+            marqueeNodeIdsRef.current = ids;
+          }
+          setSelectedNodeIds(ids);
+          if (ids.length <= 1) {
+            setSelectedNodeId(ids[0] ?? null);
+          } else {
+            setSelectedNodeId(null);
+          }
+        }}
+        onSelectionEnd={() => {
+          if (!isMarqueeSelectingRef.current) {
+            return;
+          }
+
+          isMarqueeSelectingRef.current = false;
+          const ids = marqueeNodeIdsRef.current;
+          marqueeNodeIdsRef.current = [];
+
+          if (ids.length > 1) {
+            suppressNextPaneClickRef.current = true;
+            createGroupFromSelection(ids);
+          }
         }}
       >
       </ReactFlow>
@@ -1017,7 +1560,7 @@ export default function App() {
                 ].join(" ")}
                 onClick={() => toggleSelectionPanel("border")}
               >
-                <ToolbarIcon name="border" />
+                <ToolbarIcon name="line" />
               </button>
               <button
                 title="Align"
@@ -1133,6 +1676,7 @@ export default function App() {
                           }
                         }))
                       }
+                      title={border}
                     >
                       {border}
                     </button>
@@ -1176,6 +1720,96 @@ export default function App() {
         </div>
       ) : null}
 
+      {selectedEdge && edgeToolbarPosition ? (
+        <div
+          className="contextual-toolbar-stack edge-toolbar-stack"
+          style={{
+            left: edgeToolbarPosition.left,
+            top: edgeToolbarPosition.top
+          }}
+        >
+          <div className="contextual-toolbar edge-contextual-toolbar">
+            <div className="toolbar-group">
+              <button
+                title="Delete connector"
+                aria-label="Delete connector"
+                className="toolbar-command"
+                onClick={handleDeleteSelection}
+              >
+                <ToolbarIcon name="delete" />
+              </button>
+              <button
+                title="Color"
+                aria-label="Color"
+                className={[
+                  "toolbar-command",
+                  edgePanel === "color" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() =>
+                  setEdgePanel((current) => (current === "color" ? null : "color"))
+                }
+              >
+                <ToolbarIcon name="color" />
+              </button>
+              <button
+                title="Toggle dashed line"
+                aria-label="Toggle dashed line"
+                className={[
+                  "toolbar-command",
+                  selectedEdge.lineStyle === "dashed" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() =>
+                  updateSelectedEdge((edge) => ({
+                    ...edge,
+                    lineStyle: edge.lineStyle === "dashed" ? "solid" : "dashed"
+                  }))
+                }
+              >
+                <ToolbarIcon name="border" />
+              </button>
+              <button
+                title="Toggle arrowhead"
+                aria-label="Toggle arrowhead"
+                className={[
+                  "toolbar-command",
+                  selectedEdge.arrow ? "is-active" : ""
+                ].join(" ")}
+                onClick={() =>
+                  updateSelectedEdge((edge) => ({
+                    ...edge,
+                    arrow: !edge.arrow
+                  }))
+                }
+              >
+                <ToolbarIcon name="arrow" />
+              </button>
+            </div>
+          </div>
+
+          {edgePanel === "color" ? (
+            <div className="contextual-tray edge-contextual-tray">
+              <div className="toolbar-group">
+                {colorOptions.map((color) => (
+                  <button
+                    key={color}
+                    className={[
+                      "swatch-button",
+                      selectedEdge.color === color ? "is-active" : ""
+                    ].join(" ")}
+                    onClick={() =>
+                      updateSelectedEdge((edge) => ({ ...edge, color }))
+                    }
+                    title={color}
+                  >
+                    <span className={`color-swatch color-swatch-${color}`} />
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="toolbar-stack">
         {bottomPanel === "background" ? (
           <div className="toolbar-tray">
@@ -1189,19 +1823,35 @@ export default function App() {
                     documentState.sogo?.background === mode ? "is-active" : ""
                   ].join(" ")}
                   onClick={() =>
-                    syncDocument({
-                      ...documentState,
-                      sogo: {
-                        ...documentState.sogo,
-                        background: mode
-                      }
+                    updateCanvasMeta({
+                      ...documentState.sogo,
+                      background: mode
                     })
                   }
+                  title={`Canvas background: ${mode}`}
                 >
                   <span className={`background-chip background-chip-${mode}`} />
                   <span>{mode}</span>
                 </button>
               ))}
+              <button
+                className={[
+                  "tray-button",
+                  "tray-button-compact",
+                  documentState.sogo?.snapToGrid ? "is-active" : ""
+                ].join(" ")}
+                onClick={() =>
+                  updateCanvasMeta({
+                    ...documentState.sogo,
+                    snapToGrid: !(documentState.sogo?.snapToGrid ?? false)
+                  })
+                }
+                title="Snap to grid"
+                aria-label="Snap to grid"
+              >
+                <span className="snap-chip" aria-hidden="true" />
+                <span>snap</span>
+              </button>
             </div>
           </div>
         ) : null}
@@ -1209,22 +1859,13 @@ export default function App() {
         <div className="bottom-toolbar">
           <div className="toolbar-group">
             <button
-              title="Text"
-              aria-label="Text"
+              title="Card"
+              aria-label="Card"
               className="insert-button"
               onClick={() => addNodeOfType("text")}
             >
               <ToolbarIcon name="text" />
-              <span>Text</span>
-            </button>
-            <button
-              title="Group"
-              aria-label="Group"
-              className="insert-button"
-              onClick={() => addNodeOfType("group")}
-            >
-              <ToolbarIcon name="group" />
-              <span>Group</span>
+              <span>Card</span>
             </button>
             <button
               title="File"
