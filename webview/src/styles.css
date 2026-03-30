@@ -137,18 +137,6 @@ body {
     transform 120ms ease;
 }
 
-.node-resizer-line {
-  border-color: color-mix(in srgb, var(--canvas-accent) 65%, transparent) !important;
-}
-
-.node-resizer-handle {
-  width: 10px !important;
-  height: 10px !important;
-  border-radius: 999px !important;
-  border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 6%) !important;
-  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%) !important;
-}
-
 .canvas-node.is-editing {
   box-shadow:
     0 0 0 2px color-mix(in srgb, var(--node-accent) 36%, transparent),
@@ -324,39 +312,81 @@ body {
 
 .node-handle {
   position: absolute;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--canvas-bg) 40%, var(--canvas-accent) 60%);
-  border: 1px solid color-mix(in srgb, var(--canvas-accent) 78%, white 16%);
+  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%);
+  border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%);
   opacity: 0;
-  transition: opacity 120ms ease;
+  transform: scale(0.92);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease;
   z-index: 4;
 }
 
 .canvas-node:hover .node-handle,
 .canvas-node.is-selected .node-handle {
   opacity: 1;
+  transform: scale(1);
 }
 
 .node-handle-top {
-  top: -7px;
-  left: calc(50% - 6px);
+  top: -9px;
+  left: calc(50% - 8px);
 }
 
 .node-handle-right {
-  top: calc(50% - 7px);
-  right: -8px;
+  top: calc(50% - 8px);
+  right: -9px;
 }
 
 .node-handle-bottom {
-  bottom: -7px;
-  left: calc(50% - 6px);
+  bottom: -9px;
+  left: calc(50% - 8px);
 }
 
 .node-handle-left {
-  top: calc(50% - 7px);
-  left: -8px;
+  top: calc(50% - 8px);
+  left: -9px;
+}
+
+.node-resize-grip {
+  position: absolute;
+  right: -10px;
+  bottom: -10px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.28);
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
+.node-resize-grip::before,
+.node-resize-grip::after {
+  content: "";
+  position: absolute;
+  background: color-mix(in srgb, white 82%, transparent);
+  border-radius: 999px;
+}
+
+.node-resize-grip::before {
+  width: 8px;
+  height: 2px;
+  right: 3px;
+  bottom: 5px;
+  transform: rotate(-45deg);
+}
+
+.node-resize-grip::after {
+  width: 5px;
+  height: 2px;
+  right: 2px;
+  bottom: 2px;
+  transform: rotate(-45deg);
 }
 
 .toolbar-stack {
@@ -378,8 +408,8 @@ body {
   position: static;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 8px 12px;
   border-radius: 24px;
   border: 1px solid var(--toolbar-border);
   background: color-mix(in srgb, var(--toolbar-bg) 94%, transparent);
@@ -388,7 +418,7 @@ body {
 }
 
 .toolbar-tray {
-  min-height: 58px;
+  min-height: 52px;
   justify-content: center;
 }
 
@@ -409,11 +439,11 @@ body {
 }
 
 .contextual-toolbar {
-  min-height: 56px;
+  min-height: 50px;
 }
 
 .contextual-tray {
-  min-height: 60px;
+  min-height: 52px;
   justify-content: center;
 }
 
@@ -487,16 +517,16 @@ body {
 }
 
 .tray-button {
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   padding: 0;
   font-size: 12px;
 }
 
 .tray-button-compact {
-  min-width: 84px;
+  min-width: 72px;
   width: auto;
-  padding: 8px 12px;
+  padding: 6px 10px;
 }
 
 .tray-glyph {
@@ -599,15 +629,15 @@ body {
 }
 
 .swatch-button {
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 34px;
   padding: 0;
   border-radius: 999px;
 }
 
 .color-swatch {
-  width: 26px;
-  height: 26px;
+  width: 22px;
+  height: 22px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--canvas-text) 22%, transparent);
   display: inline-block;
@@ -654,8 +684,8 @@ body {
 
 .shape-button,
 .align-button {
-  width: 46px;
-  height: 42px;
+  width: 38px;
+  height: 34px;
   padding: 0;
 }
 
@@ -664,8 +694,8 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 14px;
@@ -690,8 +720,8 @@ body {
 
 .toolbar-command svg,
 .insert-button svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
