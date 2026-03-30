@@ -23,13 +23,8 @@ type SogoBorder = "none" | "subtle" | "strong";
 type SogoTextAlign = "left" | "center" | "right";
 type CanvasNodeType = "text" | "group" | "file" | "image";
 type CanvasSide = "top" | "right" | "bottom" | "left";
-type ToolbarPanel =
-  | "insert"
-  | "background"
-  | "color"
-  | "shape"
-  | "border"
-  | "align";
+type BottomPanel = "background" | null;
+type SelectionPanel = "color" | "shape" | "border" | "align";
 
 interface SogoNodeMeta {
   shape?: SogoShape;
@@ -144,8 +139,9 @@ function createNode(
     type,
     x: position.x,
     y: position.y,
-    width: type === "group" ? 420 : 320,
-    height: type === "group" ? 220 : type === "image" ? 240 : 120,
+    width:
+      type === "group" ? 420 : type === "image" ? 260 : type === "file" ? 240 : 220,
+    height: type === "group" ? 240 : type === "image" ? 220 : 84,
     color: "default",
     sogo: {
       shape: type === "group" ? "rect" : "rounded",
@@ -206,11 +202,28 @@ function nodeToFlowNode(node: CanvasNodeData): Node {
       y: node.y
     },
     data: persistNodeData(node) as unknown as Record<string, unknown>,
-    width: node.width,
-    height: node.height,
+    style: {
+      width: node.width,
+      height: node.height
+    },
     selectable: true,
     draggable: true
   };
+}
+
+function readDimension(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number.parseFloat(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
 }
 
 function edgeToFlowEdge(edge: CanvasEdgeData): Edge {
@@ -247,8 +260,20 @@ function flowToDocument(
         ...nodeData,
         x: node.position.x,
         y: node.position.y,
-        width: node.width ?? prev.width,
-        height: node.height ?? prev.height
+        width:
+          readDimension(node.measured?.width) ??
+          readDimension(node.width) ??
+          readDimension(
+            (node.style as { width?: unknown } | undefined)?.width
+          ) ??
+          prev.width,
+        height:
+          readDimension(node.measured?.height) ??
+          readDimension(node.height) ??
+          readDimension(
+            (node.style as { height?: unknown } | undefined)?.height
+          ) ??
+          prev.height
       };
     }),
     edges: edges.map((edge) => {
@@ -358,6 +383,99 @@ function canInlineEdit(type: CanvasNodeType): boolean {
   return type === "text" || type === "group";
 }
 
+function ToolbarIcon({ name }: { name: string }) {
+  switch (name) {
+    case "text":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 7h12" />
+          <path d="M9.5 7v10" />
+          <path d="M14.5 7v10" />
+          <path d="M7 17h10" />
+        </svg>
+      );
+    case "group":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="5" y="7" width="9" height="9" rx="2" />
+          <rect x="10" y="10" width="9" height="9" rx="2" />
+        </svg>
+      );
+    case "file":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M8 4.5h6l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-8A1.5 1.5 0 0 1 7 19V6A1.5 1.5 0 0 1 8 4.5Z" />
+          <path d="M14 4.5V9h4" />
+        </svg>
+      );
+    case "image":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="4.5" y="6" width="15" height="12" rx="2" />
+          <circle cx="10" cy="10" r="1.5" />
+          <path d="M7 16l3.5-3.5L13 15l2.5-2.5L17.5 15" />
+        </svg>
+      );
+    case "background":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="7" cy="7" r="1.25" />
+          <circle cx="12" cy="7" r="1.25" />
+          <circle cx="17" cy="7" r="1.25" />
+          <circle cx="7" cy="12" r="1.25" />
+          <circle cx="12" cy="12" r="1.25" />
+          <circle cx="17" cy="12" r="1.25" />
+          <circle cx="7" cy="17" r="1.25" />
+          <circle cx="12" cy="17" r="1.25" />
+          <circle cx="17" cy="17" r="1.25" />
+        </svg>
+      );
+    case "delete":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 7h14" />
+          <path d="M9 7V5.5h6V7" />
+          <path d="M8 9.5v8" />
+          <path d="M12 9.5v8" />
+          <path d="M16 9.5v8" />
+          <path d="M6.5 7l1 11.5a1 1 0 0 0 1 .9h7a1 1 0 0 0 1-.9l1-11.5" />
+        </svg>
+      );
+    case "color":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 5.5a6.5 6.5 0 1 0 0 13c1.2 0 1.9-.6 1.9-1.4 0-.7-.3-1.2-.3-1.8 0-1 1-1.3 1.8-1.3h.8A3.8 3.8 0 0 0 20 10.2 4.7 4.7 0 0 0 15.3 5.5Z" />
+          <circle cx="8.5" cy="11" r="1" />
+          <circle cx="11.5" cy="8.5" r="1" />
+          <circle cx="15" cy="9.5" r="1" />
+        </svg>
+      );
+    case "shape":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="5" y="7" width="14" height="10" rx="3" />
+        </svg>
+      );
+    case "align":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 8h12" />
+          <path d="M8 12h8" />
+          <path d="M6 16h12" />
+        </svg>
+      );
+    case "border":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="5" y="6" width="14" height="12" rx="2" />
+          <path d="M5 10h14" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function CanvasNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as CanvasNodeViewData;
   const shape = nodeData.sogo?.shape ?? "rounded";
@@ -400,7 +518,6 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
         type="source"
         position={Position.Right}
       />
-      <div className="node-type-label">{nodeData.type}</div>
 
       {nodeData.type === "image" && nodeData.assetUri ? (
         <div className="node-image-preview">
@@ -463,7 +580,8 @@ export default function App() {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [activePanel, setActivePanel] = useState<ToolbarPanel>("insert");
+  const [bottomPanel, setBottomPanel] = useState<BottomPanel>(null);
+  const [selectionPanel, setSelectionPanel] = useState<SelectionPanel>("color");
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [assetUris, setAssetUris] = useState<Record<string, string>>({});
@@ -564,19 +682,6 @@ export default function App() {
   }, [nodes, edges]);
 
   useEffect(() => {
-    if (selectedNode) {
-      if (activePanel === "insert" || activePanel === "background") {
-        setActivePanel("color");
-      }
-      return;
-    }
-
-    if (activePanel !== "insert" && activePanel !== "background") {
-      setActivePanel("insert");
-    }
-  }, [selectedNodeId]);
-
-  useEffect(() => {
     if (!selectedNodeId || !shellRef.current) {
       setToolbarPosition(null);
       return;
@@ -607,6 +712,12 @@ export default function App() {
       window.removeEventListener("resize", updatePosition);
     };
   }, [selectedNodeId, nodes, editingNodeId]);
+
+  useEffect(() => {
+    if (selectedNodeId) {
+      setSelectionPanel("color");
+    }
+  }, [selectedNodeId]);
 
   useEffect(() => {
     const imagePaths = nodes
@@ -716,6 +827,7 @@ export default function App() {
     const node = createNode(type, { x: 180 + offset, y: 140 + offset }, partial);
     setNodes((current) => [...current, nodeToFlowNode(node)]);
     setSelectedNodeId(node.id);
+    setBottomPanel(null);
   }
 
   async function addFileNode(): Promise<void> {
@@ -810,7 +922,7 @@ export default function App() {
         edges={edges}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
-        fitView
+        defaultViewport={{ x: 0, y: 0, zoom: 1 }}
         minZoom={0.2}
         maxZoom={2.5}
         connectionMode={ConnectionMode.Loose}
@@ -880,65 +992,61 @@ export default function App() {
               <button
                 title="Delete"
                 aria-label="Delete"
-                className="toolbar-command toolbar-command-delete"
+                className="toolbar-command"
                 onClick={handleDeleteSelection}
               >
-                <span className="toolbar-command-icon" />
+                <ToolbarIcon name="delete" />
               </button>
               <button
                 title="Color"
                 aria-label="Color"
                 className={[
                   "toolbar-command",
-                  "toolbar-command-color",
-                  activePanel === "color" ? "is-active" : ""
+                  selectionPanel === "color" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setActivePanel("color")}
+                onClick={() => setSelectionPanel("color")}
               >
-                <span className="toolbar-command-icon" />
+                <ToolbarIcon name="color" />
               </button>
               <button
                 title="Shape"
                 aria-label="Shape"
                 className={[
                   "toolbar-command",
-                  "toolbar-command-shape",
-                  activePanel === "shape" ? "is-active" : ""
+                  selectionPanel === "shape" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setActivePanel("shape")}
+                onClick={() => setSelectionPanel("shape")}
               >
-                <span className="toolbar-command-icon" />
+                <ToolbarIcon name="shape" />
               </button>
               <button
                 title="Align"
                 aria-label="Align"
                 className={[
                   "toolbar-command",
-                  "toolbar-command-align",
-                  activePanel === "align" ? "is-active" : ""
+                  selectionPanel === "align" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setActivePanel("align")}
+                onClick={() => setSelectionPanel("align")}
               >
-                <span className="toolbar-command-icon" />
+                <ToolbarIcon name="align" />
               </button>
               <button
                 title="Border"
                 aria-label="Border"
                 className={[
                   "toolbar-command",
-                  "toolbar-command-border",
-                  activePanel === "border" ? "is-active" : ""
+                  selectionPanel === "border" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setActivePanel("border")}
+                onClick={() => setSelectionPanel("border")}
               >
-                <span className="toolbar-command-icon" />
+                <ToolbarIcon name="border" />
               </button>
             </div>
           </div>
 
-          {activePanel !== "insert" && activePanel !== "background" ? (
+          {selectedNode ? (
             <div className="contextual-tray">
-              {activePanel === "color" && selectedNode ? (
+              {selectionPanel === "color" ? (
                 <div className="toolbar-group">
                   {colorOptions.map((color) => (
                     <button
@@ -958,7 +1066,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              {activePanel === "shape" && selectedNode ? (
+              {selectionPanel === "shape" ? (
                 <div className="toolbar-group">
                   {shapeOptions.map((shape) => (
                     <button
@@ -986,7 +1094,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              {activePanel === "border" && selectedNode ? (
+              {selectionPanel === "border" ? (
                 <div className="toolbar-group">
                   {borderOptions.map((border) => (
                     <button
@@ -1014,7 +1122,7 @@ export default function App() {
                 </div>
               ) : null}
 
-              {activePanel === "align" && selectedNode ? (
+              {selectionPanel === "align" ? (
                 <div className="toolbar-group">
                   {alignOptions.map((align) => (
                     <button
@@ -1051,41 +1159,8 @@ export default function App() {
       ) : null}
 
       <div className="toolbar-stack">
-        <div className="toolbar-tray">
-          {activePanel === "insert" ? (
-            <div className="toolbar-group">
-              <button
-                className="tray-button"
-                onClick={() => addNodeOfType("text")}
-                title="Text"
-              >
-                <span className="tray-glyph tray-glyph-text" />
-              </button>
-              <button
-                className="tray-button"
-                onClick={() => addNodeOfType("group")}
-                title="Group"
-              >
-                <span className="tray-glyph tray-glyph-group" />
-              </button>
-              <button
-                className="tray-button"
-                onClick={addFileNode}
-                title="File"
-              >
-                <span className="tray-glyph tray-glyph-file" />
-              </button>
-              <button
-                className="tray-button"
-                onClick={addImageNode}
-                title="Image"
-              >
-                <span className="tray-glyph tray-glyph-image" />
-              </button>
-            </div>
-          ) : null}
-
-          {activePanel === "background" ? (
+        {bottomPanel === "background" ? (
+          <div className="toolbar-tray">
             <div className="toolbar-group">
               {backgroundOptions.map((mode) => (
                 <button
@@ -1110,142 +1185,64 @@ export default function App() {
                 </button>
               ))}
             </div>
-          ) : null}
-
-          {activePanel === "color" && selectedNode ? (
-            <div className="toolbar-group">
-              {colorOptions.map((color) => (
-                <button
-                  key={color}
-                  className={[
-                    "swatch-button",
-                    selectedNode.color === color ? "is-active" : ""
-                  ].join(" ")}
-                  onClick={() => updateSelectedNode((node) => ({ ...node, color }))}
-                  title={color}
-                >
-                  <span className={`color-swatch color-swatch-${color}`} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {activePanel === "shape" && selectedNode ? (
-            <div className="toolbar-group">
-              {shapeOptions.map((shape) => (
-                <button
-                  key={shape}
-                  className={[
-                    "shape-button",
-                    (selectedNode.sogo?.shape ?? "rounded") === shape
-                      ? "is-active"
-                      : ""
-                  ].join(" ")}
-                  onClick={() =>
-                    updateSelectedNode((node) => ({
-                      ...node,
-                      sogo: {
-                        ...node.sogo,
-                        shape
-                      }
-                    }))
-                  }
-                  title={shape}
-                >
-                  <span className={`shape-preview shape-preview-${shape}`} />
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {activePanel === "border" && selectedNode ? (
-            <div className="toolbar-group">
-              {borderOptions.map((border) => (
-                <button
-                  key={border}
-                  className={[
-                    "tray-button",
-                    "tray-button-compact",
-                    (selectedNode.sogo?.border ?? "subtle") === border
-                      ? "is-active"
-                      : ""
-                  ].join(" ")}
-                  onClick={() =>
-                    updateSelectedNode((node) => ({
-                      ...node,
-                      sogo: {
-                        ...node.sogo,
-                        border
-                      }
-                    }))
-                  }
-                >
-                  {border}
-                </button>
-              ))}
-            </div>
-          ) : null}
-
-          {activePanel === "align" && selectedNode ? (
-            <div className="toolbar-group">
-              {alignOptions.map((align) => (
-                <button
-                  key={align}
-                  className={[
-                    "align-button",
-                    (selectedNode.sogo?.textAlign ?? "left") === align
-                      ? "is-active"
-                      : ""
-                  ].join(" ")}
-                  onClick={() =>
-                    updateSelectedNode((node) => ({
-                      ...node,
-                      sogo: {
-                        ...node.sogo,
-                        textAlign: align
-                      }
-                    }))
-                  }
-                  title={align}
-                >
-                  <span className={`align-preview align-preview-${align}`}>
-                    <span />
-                    <span />
-                    <span />
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         <div className="bottom-toolbar">
           <div className="toolbar-group">
             <button
-              title="Add nodes"
-              aria-label="Add nodes"
-              className={[
-                "toolbar-command",
-                "toolbar-command-add",
-                activePanel === "insert" ? "is-active" : ""
-              ].join(" ")}
-              onClick={() => setActivePanel("insert")}
+              title="Text"
+              aria-label="Text"
+              className="insert-button"
+              onClick={() => addNodeOfType("text")}
             >
-              <span className="toolbar-command-icon" />
+              <ToolbarIcon name="text" />
+              <span>Text</span>
             </button>
             <button
-              title="Canvas background"
-              aria-label="Canvas background"
-              className={[
-                "toolbar-command",
-                "toolbar-command-background",
-                activePanel === "background" ? "is-active" : ""
-              ].join(" ")}
-              onClick={() => setActivePanel("background")}
+              title="Group"
+              aria-label="Group"
+              className="insert-button"
+              onClick={() => addNodeOfType("group")}
             >
-              <span className="toolbar-command-icon" />
+              <ToolbarIcon name="group" />
+              <span>Group</span>
+            </button>
+            <button
+              title="File"
+              aria-label="File"
+              className="insert-button"
+              onClick={addFileNode}
+            >
+              <ToolbarIcon name="file" />
+              <span>File</span>
+            </button>
+            <button
+              title="Image"
+              aria-label="Image"
+              className="insert-button"
+              onClick={addImageNode}
+            >
+              <ToolbarIcon name="image" />
+              <span>Image</span>
             </button>
           </div>
+          <div className="toolbar-divider" />
+          <button
+            title="Canvas background"
+            aria-label="Canvas background"
+            className={[
+              "toolbar-command",
+              bottomPanel === "background" ? "is-active" : ""
+            ].join(" ")}
+            onClick={() =>
+              setBottomPanel((current) =>
+                current === "background" ? null : "background"
+              )
+            }
+          >
+            <ToolbarIcon name="background" />
+          </button>
         </div>
       </div>
     </div>
