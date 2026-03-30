@@ -24,7 +24,7 @@ type SogoTextAlign = "left" | "center" | "right";
 type CanvasNodeType = "text" | "group" | "file" | "image";
 type CanvasSide = "top" | "right" | "bottom" | "left";
 type BottomPanel = "background" | null;
-type SelectionPanel = "color" | "shape" | "border" | "align";
+type SelectionPanel = "color" | "shape" | "border" | "align" | null;
 
 interface SogoNodeMeta {
   shape?: SogoShape;
@@ -588,7 +588,7 @@ export default function App() {
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>(null);
-  const [selectionPanel, setSelectionPanel] = useState<SelectionPanel>("color");
+  const [selectionPanel, setSelectionPanel] = useState<SelectionPanel>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [assetUris, setAssetUris] = useState<Record<string, string>>({});
@@ -722,7 +722,7 @@ export default function App() {
 
   useEffect(() => {
     if (selectedNodeId) {
-      setSelectionPanel("color");
+      setSelectionPanel(null);
     }
   }, [selectedNodeId]);
 
@@ -839,6 +839,10 @@ export default function App() {
       setEditingNodeId(node.id);
       setDraftText(displayTitle(node));
     }
+  }
+
+  function toggleSelectionPanel(panel: Exclude<SelectionPanel, null>): void {
+    setSelectionPanel((current) => (current === panel ? null : panel));
   }
 
   async function addFileNode(): Promise<void> {
@@ -962,6 +966,7 @@ export default function App() {
             commitEdit();
           }
           setSelectedNodeId(null);
+          setSelectionPanel(null);
         }}
         onNodeDoubleClick={(_, node) => {
           const persisted = persistNodeData(node.data);
@@ -1016,9 +1021,31 @@ export default function App() {
                   "toolbar-command",
                   selectionPanel === "color" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setSelectionPanel("color")}
+                onClick={() => toggleSelectionPanel("color")}
               >
                 <ToolbarIcon name="color" />
+              </button>
+              <button
+                title="Border"
+                aria-label="Border"
+                className={[
+                  "toolbar-command",
+                  selectionPanel === "border" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => toggleSelectionPanel("border")}
+              >
+                <ToolbarIcon name="border" />
+              </button>
+              <button
+                title="Align"
+                aria-label="Align"
+                className={[
+                  "toolbar-command",
+                  selectionPanel === "align" ? "is-active" : ""
+                ].join(" ")}
+                onClick={() => toggleSelectionPanel("align")}
+              >
+                <ToolbarIcon name="align" />
               </button>
               <button
                 title="Shape"
@@ -1027,7 +1054,7 @@ export default function App() {
                   "toolbar-command",
                   selectionPanel === "shape" ? "is-active" : ""
                 ].join(" ")}
-                onClick={() => setSelectionPanel("shape")}
+                onClick={() => toggleSelectionPanel("shape")}
               >
                 <ToolbarIcon name="shape" />
               </button>
@@ -1041,32 +1068,10 @@ export default function App() {
                   <ToolbarIcon name="edit" />
                 </button>
               ) : null}
-              <button
-                title="Align"
-                aria-label="Align"
-                className={[
-                  "toolbar-command",
-                  selectionPanel === "align" ? "is-active" : ""
-                ].join(" ")}
-                onClick={() => setSelectionPanel("align")}
-              >
-                <ToolbarIcon name="align" />
-              </button>
-              <button
-                title="Border"
-                aria-label="Border"
-                className={[
-                  "toolbar-command",
-                  selectionPanel === "border" ? "is-active" : ""
-                ].join(" ")}
-                onClick={() => setSelectionPanel("border")}
-              >
-                <ToolbarIcon name="border" />
-              </button>
             </div>
           </div>
 
-          {selectedNode ? (
+          {selectedNode && selectionPanel ? (
             <div className="contextual-tray">
               {selectionPanel === "color" ? (
                 <div className="toolbar-group">
