@@ -1,0 +1,531 @@
+:root {
+  color-scheme: light dark;
+  font-family:
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  --canvas-bg: var(--vscode-editor-background, #11141d);
+  --canvas-surface: color-mix(in srgb, var(--vscode-editor-background, #11141d) 82%, white 6%);
+  --canvas-surface-strong: color-mix(in srgb, var(--vscode-editor-background, #11141d) 70%, white 12%);
+  --canvas-border: color-mix(in srgb, var(--vscode-editor-foreground, #e8e9ef) 24%, transparent);
+  --canvas-border-strong: color-mix(in srgb, var(--vscode-focusBorder, #55a6ff) 72%, white 8%);
+  --canvas-grid-color: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 18%, transparent);
+  --canvas-text: var(--vscode-editor-foreground, #f1f3fa);
+  --canvas-text-muted: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 55%, transparent);
+  --canvas-accent: var(--vscode-focusBorder, #55a6ff);
+  --canvas-minimap-node: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 26%, transparent);
+  --toolbar-bg: color-mix(in srgb, var(--vscode-editor-background, #11141d) 88%, white 5%);
+  --toolbar-border: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 14%, transparent);
+  --toolbar-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--canvas-bg);
+  color: var(--canvas-text);
+}
+
+body {
+  font-family: inherit;
+}
+
+.app-shell {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  background:
+    radial-gradient(circle at top left, rgba(112, 136, 255, 0.05), transparent 30%),
+    radial-gradient(circle at bottom right, rgba(255, 196, 112, 0.04), transparent 24%),
+    var(--canvas-bg);
+}
+
+.react-flow__pane {
+  cursor: grab;
+}
+
+.react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.react-flow__controls,
+.react-flow__minimap {
+  border-radius: 18px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--toolbar-bg) 92%, transparent);
+  border: 1px solid var(--toolbar-border);
+  box-shadow: var(--toolbar-shadow);
+}
+
+.react-flow__controls button {
+  background: transparent;
+  color: var(--canvas-text);
+  border-bottom: 1px solid var(--toolbar-border);
+}
+
+.react-flow__controls button:last-child {
+  border-bottom: none;
+}
+
+.canvas-node {
+  --node-accent: color-mix(in srgb, var(--canvas-text) 44%, transparent);
+  --node-fill: var(--canvas-surface);
+  min-width: 220px;
+  min-height: 96px;
+  padding: 18px 20px;
+  position: relative;
+  background: var(--node-fill);
+  color: var(--canvas-text);
+  border: 1px solid color-mix(in srgb, var(--node-accent) 72%, transparent);
+  box-shadow:
+    0 16px 38px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    transform 120ms ease;
+}
+
+.canvas-node.is-selected {
+  border-color: var(--canvas-accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--canvas-accent) 30%, transparent),
+    0 20px 48px rgba(0, 0, 0, 0.28);
+}
+
+.canvas-node.shape-rounded {
+  border-radius: 24px;
+}
+
+.canvas-node.shape-pill {
+  border-radius: 999px;
+}
+
+.canvas-node.shape-rect {
+  border-radius: 14px;
+}
+
+.canvas-node.shape-diamond {
+  border-radius: 18px;
+  clip-path: polygon(12% 0%, 88% 0%, 100% 50%, 88% 100%, 12% 100%, 0% 50%);
+}
+
+.canvas-node.shape-circle {
+  border-radius: 999px;
+}
+
+.canvas-node.border-none {
+  border-style: solid;
+  border-color: transparent;
+}
+
+.canvas-node.border-subtle {
+  border-color: color-mix(in srgb, var(--node-accent) 58%, transparent);
+}
+
+.canvas-node.border-strong {
+  border-width: 2px;
+  border-color: color-mix(in srgb, var(--node-accent) 92%, white 8%);
+}
+
+.canvas-node.tone-default {
+  --node-accent: #9a9a9a;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 92%, #d0d0d0 8%);
+}
+
+.canvas-node.tone-pink {
+  --node-accent: #f082a8;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%);
+}
+
+.canvas-node.tone-orange {
+  --node-accent: #ffb07a;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%);
+}
+
+.canvas-node.tone-yellow {
+  --node-accent: #f4d99b;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%);
+}
+
+.canvas-node.tone-green {
+  --node-accent: #9fdf93;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #9fdf93 18%);
+}
+
+.canvas-node.tone-cyan {
+  --node-accent: #7ecbdd;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%);
+}
+
+.canvas-node.tone-lavender {
+  --node-accent: #b1b6f9;
+  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%);
+}
+
+.canvas-node.tone-rainbow {
+  --node-accent: #c491ff;
+  --node-fill:
+    linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%) 0%,
+      color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%) 24%,
+      color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%) 46%,
+      color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%) 72%,
+      color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%) 100%
+    );
+}
+
+.node-type-label {
+  margin-bottom: 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--canvas-text-muted);
+}
+
+.node-content {
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
+.node-meta {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--canvas-text-muted);
+}
+
+.node-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas-bg) 40%, var(--canvas-accent) 60%);
+  border: 1px solid color-mix(in srgb, var(--canvas-accent) 78%, white 16%);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.canvas-node:hover .node-handle,
+.canvas-node.is-selected .node-handle {
+  opacity: 1;
+}
+
+.node-handle-top {
+  top: -7px;
+  left: calc(50% - 6px);
+}
+
+.node-handle-right {
+  top: calc(50% - 6px);
+  right: -7px;
+}
+
+.node-handle-bottom {
+  bottom: -7px;
+  left: calc(50% - 6px);
+}
+
+.node-handle-left {
+  top: calc(50% - 6px);
+  left: -7px;
+}
+
+.toolbar-stack {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 40px);
+}
+
+.toolbar-tray,
+.bottom-toolbar {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 24px;
+  border: 1px solid var(--toolbar-border);
+  background: color-mix(in srgb, var(--toolbar-bg) 94%, transparent);
+  box-shadow: var(--toolbar-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.toolbar-tray {
+  min-height: 60px;
+  justify-content: center;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.toolbar-divider {
+  width: 1px;
+  align-self: stretch;
+  background: var(--toolbar-border);
+}
+
+.bottom-toolbar button {
+  appearance: none;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  padding: 9px 12px;
+  background: transparent;
+  color: var(--canvas-text);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease;
+}
+
+.bottom-toolbar button:hover {
+  background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
+  border-color: var(--toolbar-border);
+}
+
+.bottom-toolbar button.is-active {
+  background: color-mix(in srgb, var(--canvas-accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--canvas-accent) 45%, transparent);
+}
+
+.tray-button,
+.shape-button,
+.align-button,
+.swatch-button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--canvas-text);
+  border-radius: 14px;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.tray-button:hover,
+.shape-button:hover,
+.align-button:hover,
+.swatch-button:hover {
+  background: color-mix(in srgb, var(--canvas-surface-strong) 80%, transparent);
+  border-color: var(--toolbar-border);
+}
+
+.tray-button.is-active,
+.shape-button.is-active,
+.align-button.is-active,
+.swatch-button.is-active {
+  background: color-mix(in srgb, var(--canvas-accent) 15%, transparent);
+  border-color: color-mix(in srgb, var(--canvas-accent) 42%, transparent);
+}
+
+.tray-button {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.tray-button-compact {
+  min-width: 84px;
+}
+
+.tray-glyph {
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--canvas-surface-strong) 78%, transparent);
+  color: var(--canvas-text-muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.background-chip {
+  width: 28px;
+  height: 18px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--canvas-text) 20%, transparent);
+  background: var(--canvas-surface);
+}
+
+.background-chip-plain {
+  background: color-mix(in srgb, var(--canvas-surface) 94%, white 6%);
+}
+
+.background-chip-dots {
+  background:
+    radial-gradient(circle, var(--canvas-grid-color) 1px, transparent 1.5px),
+    color-mix(in srgb, var(--canvas-surface) 94%, white 6%);
+  background-size: 8px 8px;
+}
+
+.background-chip-grid {
+  background:
+    linear-gradient(var(--canvas-grid-color) 1px, transparent 1px),
+    linear-gradient(90deg, var(--canvas-grid-color) 1px, transparent 1px),
+    color-mix(in srgb, var(--canvas-surface) 94%, white 6%);
+  background-size: 8px 8px;
+}
+
+.swatch-button {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 999px;
+}
+
+.color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--canvas-text) 22%, transparent);
+  display: inline-block;
+}
+
+.color-swatch-default {
+  background: #a6a39c;
+}
+
+.color-swatch-pink {
+  background: #f082a8;
+}
+
+.color-swatch-orange {
+  background: #ffb07a;
+}
+
+.color-swatch-yellow {
+  background: #f4d99b;
+}
+
+.color-swatch-green {
+  background: #9fdf93;
+}
+
+.color-swatch-cyan {
+  background: #7ecbdd;
+}
+
+.color-swatch-lavender {
+  background: #b1b6f9;
+}
+
+.color-swatch-rainbow {
+  background: linear-gradient(
+    135deg,
+    #f082a8 0%,
+    #ffb07a 24%,
+    #f4d99b 45%,
+    #7ecbdd 72%,
+    #b1b6f9 100%
+  );
+}
+
+.shape-button,
+.align-button {
+  width: 46px;
+  height: 42px;
+  padding: 0;
+}
+
+.shape-preview {
+  width: 22px;
+  height: 18px;
+  display: inline-block;
+  border: 2px solid color-mix(in srgb, var(--canvas-text) 70%, transparent);
+}
+
+.shape-preview-rect {
+  border-radius: 4px;
+}
+
+.shape-preview-rounded {
+  border-radius: 9px;
+}
+
+.shape-preview-pill {
+  border-radius: 999px;
+}
+
+.shape-preview-diamond {
+  width: 16px;
+  height: 16px;
+  transform: rotate(45deg);
+  border-radius: 3px;
+}
+
+.shape-preview-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.align-preview {
+  width: 20px;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.align-preview span {
+  display: block;
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--canvas-text) 68%, transparent);
+}
+
+.align-preview-left {
+  align-items: flex-start;
+}
+
+.align-preview-center {
+  align-items: center;
+}
+
+.align-preview-right {
+  align-items: flex-end;
+}
+
+.align-preview span:nth-child(1) {
+  width: 18px;
+}
+
+.align-preview span:nth-child(2) {
+  width: 14px;
+}
+
+.align-preview span:nth-child(3) {
+  width: 18px;
+}

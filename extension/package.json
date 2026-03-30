@@ -1,0 +1,63 @@
+{
+  "name": "sogo-canvas",
+  "displayName": "Sogo Canvas",
+  "description": "A refined, theme-native infinite canvas for VS Code.",
+  "version": "0.0.1",
+  "publisher": "sogo",
+  "engines": {
+    "vscode": "^1.89.0"
+  },
+  "categories": [
+    "Visualization"
+  ],
+  "activationEvents": [
+    "onCustomEditor:sogo.canvasEditor",
+    "onCommand:sogo-canvas.newCanvas"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "canvas",
+        "aliases": [
+          "Canvas"
+        ],
+        "extensions": [
+          ".canvas"
+        ],
+        "mimetypes": [
+          "application/json"
+        ]
+      }
+    ],
+    "customEditors": [
+      {
+        "viewType": "sogo.canvasEditor",
+        "displayName": "Sogo Canvas",
+        "selector": [
+          {
+            "filenamePattern": "*.canvas"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
+    "commands": [
+      {
+        "command": "sogo-canvas.newCanvas",
+        "title": "Sogo Canvas: New Canvas"
+      }
+    ]
+  },
+  "scripts": {
+    "build": "tsc -p ./tsconfig.json",
+    "watch": "tsc -p ./tsconfig.json --watch",
+    "typecheck": "tsc -p ./tsconfig.json --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "@types/vscode": "^1.89.0",
+    "typescript": "^5.8.2"
+  }
+}
+
