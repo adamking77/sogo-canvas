@@ -8,7 +8,7 @@
       "runtimeExecutable": "${execPath}",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/extension",
-        "${workspaceFolder}"
+        "${workspaceFolder}/sogo-canvas.code-workspace"
       ],
       "preLaunchTask": "sogo-canvas: build"
     }
