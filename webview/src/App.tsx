@@ -10,6 +10,7 @@ import {
   NodeProps,
   Position,
   ReactFlow,
+  Viewport,
   PanOnScrollMode,
   SelectionMode,
   applyEdgeChanges,
@@ -37,6 +38,7 @@ interface SogoNodeMeta {
 interface SogoCanvasMeta {
   background?: SogoBackground;
   snapToGrid?: boolean;
+  viewport?: Viewport;
 }
 
 interface CanvasNodeData {
@@ -133,6 +135,10 @@ function createEmptyDocument(): CanvasDocumentData {
       snapToGrid: false
     }
   };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 function createNode(
@@ -404,7 +410,17 @@ function parseDocument(content: string): CanvasDocumentData {
     edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     sogo: {
       background: parsed.sogo?.background ?? "dots",
-      snapToGrid: parsed.sogo?.snapToGrid ?? false
+      snapToGrid: parsed.sogo?.snapToGrid ?? false,
+      viewport:
+        isFiniteNumber(parsed.sogo?.viewport?.x) &&
+        isFiniteNumber(parsed.sogo?.viewport?.y) &&
+        isFiniteNumber(parsed.sogo?.viewport?.zoom)
+          ? {
+              x: parsed.sogo.viewport.x,
+              y: parsed.sogo.viewport.y,
+              zoom: parsed.sogo.viewport.zoom
+            }
+          : undefined
     }
   };
 }
@@ -765,8 +781,16 @@ const nodeTypes = {
   canvasNode: CanvasNodeComponent
 };
 
+type FlowViewportApi = {
+  fitView: (options?: unknown) => Promise<boolean>;
+  setViewport: (viewport: Viewport, options?: unknown) => Promise<boolean> | void;
+  getViewport: () => Viewport;
+};
+
 export default function App() {
   const shellRef = useRef<HTMLDivElement>(null);
+  const reactFlowRef = useRef<FlowViewportApi | null>(null);
+  const [flowReady, setFlowReady] = useState(false);
   const [documentState, setDocumentState] = useState<CanvasDocumentData>(
     createEmptyDocument()
   );
@@ -796,6 +820,10 @@ export default function App() {
   const loadedRef = useRef(false);
   const currentContentRef = useRef(serializeDocument(createEmptyDocument()));
   const outboundContentRef = useRef<string | null>(null);
+  const pendingViewportInitRef = useRef<Viewport | "fit" | null>(
+    null
+  );
+  const suppressViewportSaveRef = useRef(false);
   const [toolbarPosition, setToolbarPosition] = useState<{
     left: number;
     top: number;
@@ -892,6 +920,8 @@ export default function App() {
         const next = parseDocument(message.content);
         loadedRef.current = true;
         outboundContentRef.current = null;
+        pendingViewportInitRef.current =
+          next.sogo?.viewport ?? (next.nodes.length > 0 ? "fit" : null);
         setDocumentState(next);
         setNodes(next.nodes.map(nodeToFlowNode));
         setEdges(next.edges.map(edgeToFlowEdge));
@@ -944,6 +974,42 @@ export default function App() {
   useEffect(() => {
     currentContentRef.current = serializeDocument(documentState);
   }, [documentState]);
+
+  useEffect(() => {
+    const pending = pendingViewportInitRef.current;
+    const instance = reactFlowRef.current;
+
+    if (!instance || pending === null || !loadedRef.current || !flowReady) {
+      return;
+    }
+
+    pendingViewportInitRef.current = null;
+    suppressViewportSaveRef.current = true;
+
+    const applyViewport = async () => {
+      if (pending === "fit") {
+        await instance.fitView({
+          padding: 0.18,
+          duration: 0,
+          minZoom: 0.45,
+          maxZoom: 1.1
+        });
+      } else {
+        instance.setViewport(pending, { duration: 0 });
+      }
+
+      requestAnimationFrame(() => {
+        const viewport = instance.getViewport();
+        updateCanvasMeta({
+          ...documentState.sogo,
+          viewport
+        });
+        suppressViewportSaveRef.current = false;
+      });
+    };
+
+    void applyViewport();
+  }, [nodes, edges, documentState.sogo, flowReady]);
 
   useEffect(() => {
     if (!selectedNodeId || !shellRef.current) {
@@ -1396,6 +1462,10 @@ export default function App() {
       <ReactFlow
         nodes={renderedNodes}
         edges={renderedEdges}
+        onInit={(instance) => {
+          reactFlowRef.current = instance as FlowViewportApi;
+          setFlowReady(true);
+        }}
         nodeTypes={nodeTypes}
         proOptions={{ hideAttribution: true }}
         defaultViewport={{ x: 0, y: 0, zoom: 1 }}
@@ -1481,6 +1551,16 @@ export default function App() {
           setEdges((current) => applyEdgeChanges(changes, current))
         }
         onConnect={handleConnect}
+        onMoveEnd={(_, viewport) => {
+          if (suppressViewportSaveRef.current) {
+            return;
+          }
+
+          updateCanvasMeta({
+            ...documentState.sogo,
+            viewport
+          });
+        }}
         onSelectionStart={() => {
           isMarqueeSelectingRef.current = true;
           marqueeNodeIdsRef.current = [];

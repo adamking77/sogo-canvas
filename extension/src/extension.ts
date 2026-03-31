@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import * as path from "path";
 
 type SogoBackground = "plain" | "dots" | "grid";
 type SogoShape = "rounded" | "rect" | "diamond" | "parallelogram" | "circle";
@@ -18,6 +19,11 @@ interface SogoNodeMeta {
 interface SogoCanvasMeta {
   background?: SogoBackground;
   snapToGrid?: boolean;
+  viewport?: {
+    x: number;
+    y: number;
+    zoom: number;
+  };
 }
 
 interface CanvasNodeData {
@@ -78,6 +84,10 @@ function defaultCanvas(): CanvasDocumentData {
   };
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function parseCanvasDocument(raw: string): CanvasDocumentData {
   if (!raw.trim()) {
     return defaultCanvas();
@@ -90,7 +100,17 @@ function parseCanvasDocument(raw: string): CanvasDocumentData {
     edges: Array.isArray(parsed.edges) ? parsed.edges : [],
     sogo: {
       background: parsed.sogo?.background ?? "dots",
-      snapToGrid: parsed.sogo?.snapToGrid ?? false
+      snapToGrid: parsed.sogo?.snapToGrid ?? false,
+      viewport:
+        isFiniteNumber(parsed.sogo?.viewport?.x) &&
+        isFiniteNumber(parsed.sogo?.viewport?.y) &&
+        isFiniteNumber(parsed.sogo?.viewport?.zoom)
+          ? {
+              x: parsed.sogo.viewport.x,
+              y: parsed.sogo.viewport.y,
+              zoom: parsed.sogo.viewport.zoom
+            }
+          : undefined
     }
   };
 }
@@ -105,11 +125,15 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
     webviewPanel: vscode.WebviewPanel,
     _token: vscode.CancellationToken
   ): Promise<void> {
+    const documentWorkspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    const documentDirectory = vscode.Uri.joinPath(document.uri, "..");
+
     webviewPanel.webview.options = {
       enableScripts: true,
       localResourceRoots: [
         vscode.Uri.joinPath(this.extensionUri, "media"),
-        ...(vscode.workspace.workspaceFolders?.map((folder) => folder.uri) ?? [])
+        documentDirectory,
+        ...(documentWorkspaceFolder ? [documentWorkspaceFolder.uri] : [])
       ]
     };
 
@@ -151,7 +175,7 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
             await respondWithFilePath(webviewPanel.webview, message);
             break;
           case "requestAssetUri":
-            await respondWithAssetUri(webviewPanel.webview, message);
+            await respondWithAssetUri(webviewPanel.webview, document.uri, message);
             break;
         }
       }
@@ -173,7 +197,7 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
     <meta charset="UTF-8" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; img-src ${webview.cspSource} https: data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
+      content="default-src 'none'; img-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}';"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sogo Canvas</title>
@@ -217,6 +241,7 @@ async function respondWithFilePath(
 
 async function respondWithAssetUri(
   webview: vscode.Webview,
+  documentUri: vscode.Uri,
   message: WebviewMessage
 ): Promise<void> {
   if (!message.path) {
@@ -227,10 +252,9 @@ async function respondWithAssetUri(
     return;
   }
 
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-  const fileUri = workspaceFolder
-    ? vscode.Uri.joinPath(workspaceFolder.uri, message.path)
-    : undefined;
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+  const fileUri =
+    workspaceFolder && resolveWorkspaceRelativeUri(workspaceFolder.uri, message.path);
 
   const value = fileUri ? webview.asWebviewUri(fileUri).toString() : undefined;
 
@@ -239,6 +263,26 @@ async function respondWithAssetUri(
     requestId: message.requestId,
     value
   } satisfies ExtensionResponseMessage);
+}
+
+function resolveWorkspaceRelativeUri(
+  workspaceRoot: vscode.Uri,
+  requestedPath: string
+): vscode.Uri | undefined {
+  if (!requestedPath.trim()) {
+    return undefined;
+  }
+
+  if (path.isAbsolute(requestedPath)) {
+    return undefined;
+  }
+
+  const normalized = path.posix.normalize(requestedPath.replaceAll("\\", "/"));
+  if (normalized.startsWith("../") || normalized === "..") {
+    return undefined;
+  }
+
+  return vscode.Uri.joinPath(workspaceRoot, normalized);
 }
 
 async function saveDocument(

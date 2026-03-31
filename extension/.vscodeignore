@@ -1,4 +1,6 @@
 **
 !dist/**
-!media/**
+!media/index.js
+!media/index.css
+!media/index.html
 !package.json

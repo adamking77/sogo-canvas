@@ -4,6 +4,15 @@
   "description": "A refined, theme-native infinite canvas for VS Code.",
   "version": "0.0.1",
   "publisher": "sogo",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adamking77/sogo-canvas.git"
+  },
+  "bugs": {
+    "url": "https://github.com/adamking77/sogo-canvas/issues"
+  },
+  "homepage": "https://github.com/adamking77/sogo-canvas",
   "engines": {
     "vscode": "^1.89.0"
   },
@@ -60,4 +69,3 @@
     "typescript": "^5.8.2"
   }
 }
-

@@ -395,6 +395,11 @@
   ],
   "sogo": {
     "background": "plain",
-    "snapToGrid": true
+    "snapToGrid": true,
+    "viewport": {
+      "x": 117.13318262682725,
+      "y": 36.64555507337121,
+      "zoom": 0.45
+    }
   }
 }

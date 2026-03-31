@@ -7,7 +7,7 @@ export default defineConfig({
   build: {
     outDir: resolve(__dirname, "../extension/media"),
     emptyOutDir: true,
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         entryFileNames: "index.js",
@@ -21,4 +21,3 @@ export default defineConfig({
     }
   }
 });
-
