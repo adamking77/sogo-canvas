@@ -1939,37 +1939,42 @@ export default function App() {
         <div className="bottom-toolbar">
           <div className="toolbar-group">
             <button
-              title="Card"
-              aria-label="Card"
+              title="Add card"
+              aria-label="Add card"
               className="insert-button"
               onClick={() => addNodeOfType("text")}
             >
               <ToolbarIcon name="text" />
-              <span>Card</span>
             </button>
             <button
-              title="File"
-              aria-label="File"
+              title="Add group"
+              aria-label="Add group"
+              className="insert-button"
+              onClick={() => addNodeOfType("group")}
+            >
+              <ToolbarIcon name="group" />
+            </button>
+            <button
+              title="Add file reference"
+              aria-label="Add file reference"
               className="insert-button"
               onClick={addFileNode}
             >
               <ToolbarIcon name="file" />
-              <span>File</span>
             </button>
             <button
-              title="Image"
-              aria-label="Image"
+              title="Add image reference"
+              aria-label="Add image reference"
               className="insert-button"
               onClick={addImageNode}
             >
               <ToolbarIcon name="image" />
-              <span>Image</span>
             </button>
           </div>
           <div className="toolbar-divider" />
           <button
-            title="Canvas background"
-            aria-label="Canvas background"
+            title="Edit canvas background"
+            aria-label="Edit canvas background"
             className={[
               "toolbar-command",
               bottomPanel === "background" ? "is-active" : ""

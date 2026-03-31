@@ -13,9 +13,17 @@
     "url": "https://github.com/adamking77/sogo-canvas/issues"
   },
   "homepage": "https://github.com/adamking77/sogo-canvas",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.89.0"
   },
+  "files": [
+    "dist",
+    "media",
+    "package.json",
+    "README.md",
+    "icon.png"
+  ],
   "categories": [
     "Visualization"
   ],
