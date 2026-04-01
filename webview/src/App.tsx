@@ -19,7 +19,13 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type SogoBackground = "plain" | "dots" | "grid";
-type SogoShape = "rounded" | "rect" | "diamond" | "parallelogram" | "circle";
+type SogoShape =
+  | "rounded"
+  | "rect"
+  | "pill"
+  | "diamond"
+  | "parallelogram"
+  | "circle";
 type SogoBorder = "none" | "subtle" | "strong";
 type SogoTextAlign = "left" | "center" | "right";
 type EdgeLineStyle = "solid" | "dashed";
@@ -111,10 +117,12 @@ const colorOptions = [
   "lavender",
   "rainbow"
 ] as const;
+type CanvasColor = (typeof colorOptions)[number];
 
 const shapeOptions: SogoShape[] = [
   "rect",
   "rounded",
+  "pill",
   "diamond",
   "parallelogram",
   "circle"
@@ -125,6 +133,124 @@ const backgroundOptions: SogoBackground[] = ["plain", "dots", "grid"];
 const canvasGridSize = 24;
 
 const pendingRequests = new Map<string, PendingRequest>();
+const colorOptionSet = new Set<string>(colorOptions);
+const shapeOptionSet = new Set<string>(shapeOptions);
+const borderOptionSet = new Set<string>(borderOptions);
+const alignOptionSet = new Set<string>(alignOptions);
+
+const colorAliases: Record<string, CanvasColor> = {
+  "0": "default",
+  "1": "pink",
+  "2": "orange",
+  "3": "yellow",
+  "4": "green",
+  "5": "cyan",
+  "6": "lavender",
+  "7": "rainbow",
+  gray: "default",
+  grey: "default",
+  neutral: "default",
+  none: "default",
+  red: "pink",
+  magenta: "pink",
+  amber: "orange",
+  gold: "yellow",
+  lime: "green",
+  teal: "cyan",
+  aqua: "cyan",
+  blue: "cyan",
+  purple: "lavender",
+  violet: "lavender"
+};
+
+const shapeAliases: Record<string, SogoShape> = {
+  rectangle: "rect",
+  square: "rect",
+  box: "rect",
+  roundedrect: "rounded",
+  "rounded-rect": "rounded",
+  "rounded_rect": "rounded",
+  pill: "pill",
+  capsule: "pill",
+  oval: "pill",
+  rhombus: "diamond",
+  slanted: "parallelogram",
+  ellipse: "circle"
+};
+
+function normalizeToken(value?: string): string | undefined {
+  const normalized = value?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : undefined;
+}
+
+function normalizeColor(value?: string): CanvasColor {
+  const normalized = normalizeToken(value);
+
+  if (!normalized) {
+    return "default";
+  }
+
+  if (normalized in colorAliases) {
+    return colorAliases[normalized];
+  }
+
+  return colorOptionSet.has(normalized) ? (normalized as CanvasColor) : "default";
+}
+
+function normalizeShape(value?: string): SogoShape {
+  const normalized = normalizeToken(value);
+
+  if (!normalized) {
+    return "rounded";
+  }
+
+  if (normalized in shapeAliases) {
+    return shapeAliases[normalized];
+  }
+
+  return shapeOptionSet.has(normalized) ? (normalized as SogoShape) : "rounded";
+}
+
+function normalizeBorder(value?: string): SogoBorder {
+  const normalized = normalizeToken(value);
+  return borderOptionSet.has(normalized ?? "")
+    ? (normalized as SogoBorder)
+    : "subtle";
+}
+
+function normalizeTextAlign(value?: string): SogoTextAlign {
+  const normalized = normalizeToken(value);
+  return alignOptionSet.has(normalized ?? "")
+    ? (normalized as SogoTextAlign)
+    : "left";
+}
+
+function normalizeLineStyle(value?: string): EdgeLineStyle {
+  const normalized = normalizeToken(value);
+  return normalized === "dashed" ? "dashed" : "solid";
+}
+
+function normalizeNodeData(input: CanvasNodeData): CanvasNodeData {
+  return {
+    ...input,
+    color: normalizeColor(input.color),
+    sogo: {
+      ...input.sogo,
+      shape: normalizeShape(input.sogo?.shape),
+      border: normalizeBorder(input.sogo?.border),
+      textAlign: normalizeTextAlign(input.sogo?.textAlign)
+    }
+  };
+}
+
+function normalizeEdgeData(input: CanvasEdgeData): CanvasEdgeData {
+  return {
+    ...input,
+    color: normalizeColor(input.color),
+    lineStyle: normalizeLineStyle(input.lineStyle),
+    arrow: input.arrow ?? true
+  };
+}
 
 function createEmptyDocument(): CanvasDocumentData {
   return {
@@ -186,7 +312,7 @@ function createNode(
 
 function persistNodeData(input: unknown): CanvasNodeData {
   const node = input as CanvasNodeData;
-  return {
+  return normalizeNodeData({
     id: node.id,
     type: node.type,
     x: node.x,
@@ -203,7 +329,7 @@ function persistNodeData(input: unknown): CanvasNodeData {
       border: node.sogo?.border,
       textAlign: node.sogo?.textAlign
     }
-  };
+  });
 }
 
 function nodeToFlowNode(node: CanvasNodeData): Node {
@@ -241,7 +367,7 @@ function readDimension(value: unknown): number | undefined {
 }
 
 function edgeStroke(color?: string): string {
-  switch (color) {
+  switch (normalizeColor(color)) {
     case "pink":
       return "#f082a8";
     case "orange":
@@ -262,16 +388,17 @@ function edgeStroke(color?: string): string {
 }
 
 function edgePresentation(edge: CanvasEdgeData) {
-  const stroke = edgeStroke(edge.color);
+  const normalizedEdge = normalizeEdgeData(edge);
+  const stroke = edgeStroke(normalizedEdge.color);
 
   return {
     style: {
       stroke,
       strokeWidth: 2,
-      strokeDasharray: edge.lineStyle === "dashed" ? "7 5" : undefined
+      strokeDasharray: normalizedEdge.lineStyle === "dashed" ? "7 5" : undefined
     },
     markerEnd:
-      edge.arrow === false
+      normalizedEdge.arrow === false
         ? undefined
         : {
             type: MarkerType.ArrowClosed,
@@ -281,17 +408,18 @@ function edgePresentation(edge: CanvasEdgeData) {
 }
 
 function edgeToFlowEdge(edge: CanvasEdgeData): Edge {
-  const presentation = edgePresentation(edge);
+  const normalizedEdge = normalizeEdgeData(edge);
+  const presentation = edgePresentation(normalizedEdge);
   return {
-    id: edge.id,
-    source: edge.fromNode,
-    target: edge.toNode,
-    sourceHandle: edge.fromSide,
-    targetHandle: edge.toSide,
+    id: normalizedEdge.id,
+    source: normalizedEdge.fromNode,
+    target: normalizedEdge.toNode,
+    sourceHandle: normalizedEdge.fromSide,
+    targetHandle: normalizedEdge.toSide,
     data: {
-      color: edge.color ?? "default",
-      lineStyle: edge.lineStyle ?? "solid",
-      arrow: edge.arrow ?? true
+      color: normalizedEdge.color,
+      lineStyle: normalizedEdge.lineStyle,
+      arrow: normalizedEdge.arrow
     },
     type: "bezier",
     style: presentation.style,
@@ -406,8 +534,12 @@ function parseDocument(content: string): CanvasDocumentData {
   const parsed = JSON.parse(content) as Partial<CanvasDocumentData>;
 
   return {
-    nodes: Array.isArray(parsed.nodes) ? parsed.nodes : [],
-    edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+    nodes: Array.isArray(parsed.nodes)
+      ? parsed.nodes.map((node) => normalizeNodeData(node as CanvasNodeData))
+      : [],
+    edges: Array.isArray(parsed.edges)
+      ? parsed.edges.map((edge) => normalizeEdgeData(edge as CanvasEdgeData))
+      : [],
     sogo: {
       background: parsed.sogo?.background ?? "dots",
       snapToGrid: parsed.sogo?.snapToGrid ?? false,
@@ -608,10 +740,10 @@ function ToolbarIcon({ name }: { name: string }) {
 function CanvasNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as CanvasNodeViewData;
   const isSelected = Boolean(selected);
-  const shape = nodeData.sogo?.shape ?? "rounded";
-  const border = nodeData.sogo?.border ?? "subtle";
-  const align = nodeData.sogo?.textAlign ?? "left";
-  const color = nodeData.color ?? "default";
+  const shape = normalizeShape(nodeData.sogo?.shape);
+  const border = normalizeBorder(nodeData.sogo?.border);
+  const align = normalizeTextAlign(nodeData.sogo?.textAlign);
+  const color = normalizeColor(nodeData.color);
   const ext = fileExtension(nodeData.file).toUpperCase();
 
   return (

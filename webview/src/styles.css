@@ -7,18 +7,33 @@
     "Segoe UI",
     sans-serif;
   --canvas-bg: var(--vscode-editor-background, #11141d);
-  --canvas-surface: color-mix(in srgb, var(--vscode-editor-background, #11141d) 82%, white 6%);
-  --canvas-surface-strong: color-mix(in srgb, var(--vscode-editor-background, #11141d) 70%, white 12%);
-  --canvas-border: color-mix(in srgb, var(--vscode-editor-foreground, #e8e9ef) 24%, transparent);
-  --canvas-border-strong: color-mix(in srgb, var(--vscode-focusBorder, #55a6ff) 72%, white 8%);
-  --canvas-grid-color: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 18%, transparent);
+  --canvas-surface: #1b1f29;
+  --canvas-surface-strong: #252a35;
+  --canvas-border: rgba(232, 233, 239, 0.24);
+  --canvas-border-strong: #55a6ff;
+  --canvas-grid-color: rgba(213, 215, 223, 0.18);
   --canvas-text: var(--vscode-editor-foreground, #f1f3fa);
-  --canvas-text-muted: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 55%, transparent);
+  --canvas-text-muted: rgba(241, 243, 250, 0.55);
   --canvas-accent: var(--vscode-focusBorder, #55a6ff);
-  --canvas-edge: color-mix(in srgb, var(--vscode-editor-foreground, #e8e9ef) 48%, transparent);
-  --canvas-minimap-node: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 26%, transparent);
-  --toolbar-bg: color-mix(in srgb, var(--vscode-editor-background, #11141d) 88%, white 5%);
-  --toolbar-border: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 14%, transparent);
+  --canvas-edge: rgba(232, 233, 239, 0.48);
+  --canvas-minimap-node: rgba(241, 243, 250, 0.26);
+  --toolbar-bg: rgba(17, 20, 29, 0.88);
+  --toolbar-border: rgba(213, 215, 223, 0.14);
+}
+
+@supports (background: color-mix(in srgb, black 50%, white)) {
+  :root {
+    --canvas-surface: color-mix(in srgb, var(--vscode-editor-background, #11141d) 82%, white 6%);
+    --canvas-surface-strong: color-mix(in srgb, var(--vscode-editor-background, #11141d) 70%, white 12%);
+    --canvas-border: color-mix(in srgb, var(--vscode-editor-foreground, #e8e9ef) 24%, transparent);
+    --canvas-border-strong: color-mix(in srgb, var(--vscode-focusBorder, #55a6ff) 72%, white 8%);
+    --canvas-grid-color: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 18%, transparent);
+    --canvas-text-muted: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 55%, transparent);
+    --canvas-edge: color-mix(in srgb, var(--vscode-editor-foreground, #e8e9ef) 48%, transparent);
+    --canvas-minimap-node: color-mix(in srgb, var(--vscode-editor-foreground, #f1f3fa) 26%, transparent);
+    --toolbar-bg: color-mix(in srgb, var(--vscode-editor-background, #11141d) 88%, white 5%);
+    --toolbar-border: color-mix(in srgb, var(--vscode-editor-foreground, #d5d7df) 14%, transparent);
+  }
 }
 
 * {
@@ -153,10 +168,10 @@ body {
 }
 
 .canvas-node {
-  --node-accent: color-mix(in srgb, var(--canvas-text) 44%, transparent);
+  --node-accent: rgba(241, 243, 250, 0.44);
   --node-fill: var(--canvas-surface);
   --node-border-width: 1px;
-  --node-border-color: color-mix(in srgb, var(--node-accent) 72%, transparent);
+  --node-border-color: var(--node-accent);
   width: 100%;
   height: 100%;
   min-width: 160px;
@@ -169,6 +184,13 @@ body {
   transition:
     border-color 120ms ease,
     transform 120ms ease;
+}
+
+@supports (background: color-mix(in srgb, black 50%, white)) {
+  .canvas-node {
+    --node-accent: color-mix(in srgb, var(--canvas-text) 44%, transparent);
+    --node-border-color: color-mix(in srgb, var(--node-accent) 72%, transparent);
+  }
 }
 
 .canvas-node::before {
@@ -188,6 +210,7 @@ body {
 }
 
 .node-resizer-line {
+  border-color: rgba(85, 166, 255, 0.65) !important;
   border-color: color-mix(in srgb, var(--canvas-accent) 65%, transparent) !important;
 }
 
@@ -195,16 +218,19 @@ body {
   width: 9px !important;
   height: 9px !important;
   border-radius: 999px !important;
+  border: 1.5px solid var(--canvas-accent) !important;
+  background: var(--canvas-accent) !important;
   border: 1.5px solid color-mix(in srgb, var(--canvas-accent) 92%, white 10%) !important;
   background: color-mix(in srgb, var(--canvas-bg) 18%, var(--canvas-accent) 82%) !important;
 }
 
 .canvas-node.is-editing {
-  --node-border-color: color-mix(in srgb, var(--node-accent) 82%, white 8%);
+  --node-border-color: var(--node-accent);
 }
 
 .canvas-node.is-selected {
   --node-border-color: var(--canvas-accent);
+  outline: 2px solid rgba(85, 166, 255, 0.28);
   outline: 2px solid color-mix(in srgb, var(--canvas-accent) 28%, transparent);
   outline-offset: 0;
 }
@@ -215,6 +241,10 @@ body {
 
 .canvas-node.shape-rect {
   border-radius: 14px;
+}
+
+.canvas-node.shape-pill {
+  border-radius: 999px;
 }
 
 .canvas-node.shape-diamond {
@@ -267,47 +297,47 @@ body {
 
 .canvas-node.border-subtle {
   --node-border-width: 1px;
-  --node-border-color: color-mix(in srgb, var(--node-accent) 58%, transparent);
+  --node-border-color: var(--node-accent);
 }
 
 .canvas-node.border-strong {
   --node-border-width: 2px;
-  --node-border-color: color-mix(in srgb, var(--node-accent) 92%, white 8%);
+  --node-border-color: var(--node-accent);
 }
 
 .canvas-node.tone-default {
   --node-accent: #9a9a9a;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 92%, #d0d0d0 8%);
+  --node-fill: #242832;
 }
 
 .canvas-node.tone-pink {
   --node-accent: #f082a8;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%);
+  --node-fill: #382731;
 }
 
 .canvas-node.tone-orange {
   --node-accent: #ffb07a;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%);
+  --node-fill: #3a2c27;
 }
 
 .canvas-node.tone-yellow {
   --node-accent: #f4d99b;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%);
+  --node-fill: #3c3328;
 }
 
 .canvas-node.tone-green {
   --node-accent: #9fdf93;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #9fdf93 18%);
+  --node-fill: #26372a;
 }
 
 .canvas-node.tone-cyan {
   --node-accent: #7ecbdd;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%);
+  --node-fill: #25343a;
 }
 
 .canvas-node.tone-lavender {
   --node-accent: #b1b6f9;
-  --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%);
+  --node-fill: #2c3042;
 }
 
 .canvas-node.tone-rainbow {
@@ -315,17 +345,76 @@ body {
   --node-fill:
     linear-gradient(
       135deg,
-      color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%) 0%,
-      color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%) 24%,
-      color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%) 46%,
-      color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%) 72%,
-      color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%) 100%
+      #382731 0%,
+      #3a2c27 24%,
+      #3c3328 46%,
+      #25343a 72%,
+      #2c3042 100%
     );
 }
 
 .canvas-node.node-kind-group {
-  --node-fill: color-mix(in srgb, var(--node-accent) 10%, transparent);
-  --node-border-color: color-mix(in srgb, var(--node-accent) 42%, transparent);
+  --node-fill: rgba(255, 255, 255, 0.04);
+  --node-border-color: var(--node-accent);
+}
+
+@supports (background: color-mix(in srgb, black 50%, white)) {
+  .canvas-node.is-editing {
+    --node-border-color: color-mix(in srgb, var(--node-accent) 82%, white 8%);
+  }
+
+  .canvas-node.border-subtle {
+    --node-border-color: color-mix(in srgb, var(--node-accent) 58%, transparent);
+  }
+
+  .canvas-node.border-strong {
+    --node-border-color: color-mix(in srgb, var(--node-accent) 92%, white 8%);
+  }
+
+  .canvas-node.tone-default {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 92%, #d0d0d0 8%);
+  }
+
+  .canvas-node.tone-pink {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%);
+  }
+
+  .canvas-node.tone-orange {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%);
+  }
+
+  .canvas-node.tone-yellow {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%);
+  }
+
+  .canvas-node.tone-green {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #9fdf93 18%);
+  }
+
+  .canvas-node.tone-cyan {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%);
+  }
+
+  .canvas-node.tone-lavender {
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%);
+  }
+
+  .canvas-node.tone-rainbow {
+    --node-fill:
+      linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--canvas-surface) 82%, #f082a8 18%) 0%,
+        color-mix(in srgb, var(--canvas-surface) 82%, #ffb07a 18%) 24%,
+        color-mix(in srgb, var(--canvas-surface) 82%, #f4d99b 18%) 46%,
+        color-mix(in srgb, var(--canvas-surface) 82%, #7ecbdd 18%) 72%,
+        color-mix(in srgb, var(--canvas-surface) 82%, #b1b6f9 18%) 100%
+      );
+  }
+
+  .canvas-node.node-kind-group {
+    --node-fill: color-mix(in srgb, var(--node-accent) 10%, transparent);
+    --node-border-color: color-mix(in srgb, var(--node-accent) 42%, transparent);
+  }
 }
 
 .node-content {
@@ -1071,6 +1160,7 @@ svg.react-flow__connectionline {
   width: 22px;
   height: 18px;
   display: inline-block;
+  border: 2px solid rgba(241, 243, 250, 0.7);
   border: 2px solid color-mix(in srgb, var(--canvas-text) 70%, transparent);
 }
 
@@ -1080,6 +1170,10 @@ svg.react-flow__connectionline {
 
 .shape-preview-rounded {
   border-radius: 9px;
+}
+
+.shape-preview-pill {
+  border-radius: 999px;
 }
 
 .shape-preview-diamond {
