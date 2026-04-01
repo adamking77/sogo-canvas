@@ -20,7 +20,6 @@ import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 
 type SogoBackground = "plain" | "dots" | "grid";
 type SogoShape =
-  | "rounded"
   | "rect"
   | "pill"
   | "diamond"
@@ -126,7 +125,6 @@ type CanvasColor = CanvasColorPreset | string;
 
 const shapeOptions: SogoShape[] = [
   "rect",
-  "rounded",
   "pill",
   "diamond",
   "parallelogram",
@@ -172,9 +170,10 @@ const shapeAliases: Record<string, SogoShape> = {
   rectangle: "rect",
   square: "rect",
   box: "rect",
-  roundedrect: "rounded",
-  "rounded-rect": "rounded",
-  "rounded_rect": "rounded",
+  rounded: "rect",
+  roundedrect: "rect",
+  "rounded-rect": "rect",
+  "rounded_rect": "rect",
   pill: "pill",
   capsule: "pill",
   oval: "pill",
@@ -254,7 +253,7 @@ function customNodeToneStyle(color: string): CSSProperties {
   const [red, green, blue] = rgb;
   return {
     "--node-accent": color,
-    "--node-fill": `rgba(${red}, ${green}, ${blue}, 0.16)`
+    "--node-fill": `rgba(${red}, ${green}, ${blue}, 0.19)`
   } as CSSProperties;
 }
 
@@ -276,14 +275,14 @@ function normalizeShape(value?: string): SogoShape {
   const normalized = normalizeToken(value);
 
   if (!normalized) {
-    return "rounded";
+    return "rect";
   }
 
   if (normalized in shapeAliases) {
     return shapeAliases[normalized];
   }
 
-  return shapeOptionSet.has(normalized) ? (normalized as SogoShape) : "rounded";
+  return shapeOptionSet.has(normalized) ? (normalized as SogoShape) : "rect";
 }
 
 function normalizeBorder(value?: string): SogoBorder {
@@ -359,7 +358,7 @@ function createNode(
     height: type === "group" ? 200 : type === "image" ? 200 : type === "file" ? 148 : 72,
     color: "default",
     sogo: {
-      shape: type === "group" ? "rect" : "rounded",
+      shape: "rect",
       border: "subtle",
       textAlign: "left"
     }
@@ -2312,7 +2311,7 @@ export default function App() {
                       key={shape}
                       className={[
                         "shape-button",
-                        (selectedNode.sogo?.shape ?? "rounded") === shape
+                        normalizeShape(selectedNode.sogo?.shape) === shape
                           ? "is-active"
                           : ""
                       ].join(" ")}

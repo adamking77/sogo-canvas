@@ -204,6 +204,10 @@ body {
   pointer-events: none;
 }
 
+.canvas-node::after {
+  content: none;
+}
+
 .canvas-node > * {
   position: relative;
   z-index: 1;
@@ -248,10 +252,6 @@ body {
   outline-offset: 0;
 }
 
-.canvas-node.shape-rounded {
-  border-radius: 24px;
-}
-
 .canvas-node.shape-rect {
   border-radius: 14px;
 }
@@ -265,9 +265,24 @@ body {
 }
 
 .canvas-node.shape-diamond::before {
+  background: var(--node-border-color);
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
   border: none;
-  box-shadow: inset 0 0 0 var(--node-border-width) var(--node-border-color);
+}
+
+.canvas-node.shape-diamond::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--node-fill);
+  clip-path: polygon(
+    50% var(--node-border-width),
+    calc(100% - var(--node-border-width)) 50%,
+    50% calc(100% - var(--node-border-width)),
+    var(--node-border-width) 50%
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 .canvas-node.shape-parallelogram {
@@ -275,13 +290,28 @@ body {
 }
 
 .canvas-node.shape-parallelogram::before {
+  background: var(--node-border-color);
   clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
   border: none;
-  box-shadow: inset 0 0 0 var(--node-border-width) var(--node-border-color);
+}
+
+.canvas-node.shape-parallelogram::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--node-fill);
+  clip-path: polygon(
+    calc(12% + var(--node-border-width)) var(--node-border-width),
+    calc(100% - var(--node-border-width)) var(--node-border-width),
+    calc(88% - var(--node-border-width)) calc(100% - var(--node-border-width)),
+    var(--node-border-width) calc(100% - var(--node-border-width))
+  );
+  z-index: 0;
+  pointer-events: none;
 }
 
 .canvas-node.shape-circle {
-  border-radius: 999px;
+  border-radius: 50%;
   padding: 18px 22px;
 }
 
@@ -321,50 +351,50 @@ body {
 }
 
 .canvas-node.tone-default {
-  --node-accent: #7b7d91;
-  --node-fill: #eceff6;
+  --node-accent: #727689;
+  --node-fill: #e6e9f1;
 }
 
 .canvas-node.tone-pink {
-  --node-accent: #e64d87;
-  --node-fill: #ffe5ee;
+  --node-accent: #cb6a8d;
+  --node-fill: #f1e1e8;
 }
 
 .canvas-node.tone-orange {
-  --node-accent: #ea7a18;
-  --node-fill: #ffe8cf;
+  --node-accent: #ca8445;
+  --node-fill: #f1e4d8;
 }
 
 .canvas-node.tone-yellow {
-  --node-accent: #c99700;
-  --node-fill: #fff0c4;
+  --node-accent: #b19449;
+  --node-fill: #efe7d1;
 }
 
 .canvas-node.tone-green {
-  --node-accent: #2ca44f;
-  --node-fill: #dcf5e3;
+  --node-accent: #51946a;
+  --node-fill: #dceadf;
 }
 
 .canvas-node.tone-cyan {
-  --node-accent: #1793b8;
-  --node-fill: #dbf4fa;
+  --node-accent: #3e8ca4;
+  --node-fill: #dce9ed;
 }
 
 .canvas-node.tone-lavender {
-  --node-accent: #6c72e8;
-  --node-fill: #e6e8ff;
+  --node-accent: #7680cb;
+  --node-fill: #e2e4f2;
 }
 
 .canvas-node.tone-rainbow {
-  --node-accent: #8b5cf6;
+  --node-accent: #7e68ce;
   --node-fill:
     linear-gradient(
       135deg,
-      #ffe5ee 0%,
-      #ffe8cf 24%,
-      #fff0c4 46%,
-      #dbf4fa 72%,
-      #e6e8ff 100%
+      #f1e1e8 0%,
+      #f1e4d8 24%,
+      #efe7d1 46%,
+      #dce9ed 72%,
+      #e2e4f2 100%
     );
 }
 
@@ -391,42 +421,42 @@ body {
   }
 
   .canvas-node.tone-default {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 74%, #dfe3ee 26%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #d6dae6 28%);
   }
 
   .canvas-node.tone-pink {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 76%, #e64d87 24%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #cb6a8d 28%);
   }
 
   .canvas-node.tone-orange {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 76%, #ea7a18 24%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #ca8445 28%);
   }
 
   .canvas-node.tone-yellow {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 78%, #d6a200 22%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 73%, #b19449 27%);
   }
 
   .canvas-node.tone-green {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 76%, #2ca44f 24%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #51946a 28%);
   }
 
   .canvas-node.tone-cyan {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 76%, #1793b8 24%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #3e8ca4 28%);
   }
 
   .canvas-node.tone-lavender {
-    --node-fill: color-mix(in srgb, var(--canvas-surface) 76%, #6c72e8 24%);
+    --node-fill: color-mix(in srgb, var(--canvas-surface) 72%, #7680cb 28%);
   }
 
   .canvas-node.tone-rainbow {
     --node-fill:
       linear-gradient(
         135deg,
-        color-mix(in srgb, var(--canvas-surface) 78%, #e64d87 22%) 0%,
-        color-mix(in srgb, var(--canvas-surface) 78%, #ea7a18 22%) 24%,
-        color-mix(in srgb, var(--canvas-surface) 80%, #d6a200 20%) 46%,
-        color-mix(in srgb, var(--canvas-surface) 78%, #1793b8 22%) 72%,
-        color-mix(in srgb, var(--canvas-surface) 78%, #6c72e8 22%) 100%
+        color-mix(in srgb, var(--canvas-surface) 74%, #cb6a8d 26%) 0%,
+        color-mix(in srgb, var(--canvas-surface) 74%, #ca8445 26%) 24%,
+        color-mix(in srgb, var(--canvas-surface) 75%, #b19449 25%) 46%,
+        color-mix(in srgb, var(--canvas-surface) 74%, #3e8ca4 26%) 72%,
+        color-mix(in srgb, var(--canvas-surface) 74%, #7680cb 26%) 100%
       );
   }
 
@@ -1039,41 +1069,41 @@ svg.react-flow__connectionline {
 }
 
 .color-swatch-default {
-  background: #7b7d91;
+  background: #727689;
 }
 
 .color-swatch-pink {
-  background: #e64d87;
+  background: #cb6a8d;
 }
 
 .color-swatch-orange {
-  background: #ea7a18;
+  background: #ca8445;
 }
 
 .color-swatch-yellow {
-  background: #d6a200;
+  background: #b19449;
 }
 
 .color-swatch-green {
-  background: #2ca44f;
+  background: #51946a;
 }
 
 .color-swatch-cyan {
-  background: #1793b8;
+  background: #3e8ca4;
 }
 
 .color-swatch-lavender {
-  background: #6c72e8;
+  background: #7680cb;
 }
 
 .color-swatch-rainbow {
   background: linear-gradient(
     135deg,
-    #e64d87 0%,
-    #ea7a18 24%,
-    #d6a200 45%,
-    #1793b8 72%,
-    #6c72e8 100%
+    #cb6a8d 0%,
+    #ca8445 24%,
+    #b19449 45%,
+    #3e8ca4 72%,
+    #7680cb 100%
   );
 }
 
@@ -1323,10 +1353,6 @@ svg.react-flow__connectionline {
 
 .shape-preview-rect {
   border-radius: 4px;
-}
-
-.shape-preview-rounded {
-  border-radius: 9px;
 }
 
 .shape-preview-pill {
