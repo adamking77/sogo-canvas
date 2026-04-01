@@ -33,6 +33,7 @@ interface CanvasNodeData {
   y: number;
   width: number;
   height: number;
+  groupId?: string;
   text?: string;
   label?: string;
   color?: string;
@@ -59,7 +60,12 @@ interface CanvasDocumentData {
 }
 
 interface WebviewMessage {
-  type: "ready" | "save" | "requestFilePath" | "requestAssetUri";
+  type:
+    | "ready"
+    | "save"
+    | "requestFilePath"
+    | "requestAssetUri"
+    | "requestFilePreview";
   content?: string;
   requestId?: string;
   accept?: string;
@@ -67,11 +73,39 @@ interface WebviewMessage {
 }
 
 interface ExtensionResponseMessage {
-  type: "loadDocument" | "filePathResponse" | "assetUriResponse";
+  type:
+    | "loadDocument"
+    | "filePathResponse"
+    | "assetUriResponse"
+    | "filePreviewResponse";
   content?: string;
   requestId?: string;
   value?: string;
 }
+
+const previewableTextExtensions = new Set([
+  "md",
+  "mdx",
+  "txt",
+  "json",
+  "jsonc",
+  "yaml",
+  "yml",
+  "ts",
+  "tsx",
+  "js",
+  "jsx",
+  "css",
+  "scss",
+  "html",
+  "xml",
+  "py",
+  "go",
+  "rs",
+  "java",
+  "sh",
+  "sql"
+]);
 
 function defaultCanvas(): CanvasDocumentData {
   return {
@@ -172,10 +206,13 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
             }
             break;
           case "requestFilePath":
-            await respondWithFilePath(webviewPanel.webview, message);
+            await respondWithFilePath(webviewPanel.webview, document.uri, message);
             break;
           case "requestAssetUri":
             await respondWithAssetUri(webviewPanel.webview, document.uri, message);
+            break;
+          case "requestFilePreview":
+            await respondWithFilePreview(webviewPanel.webview, document.uri, message);
             break;
         }
       }
@@ -213,6 +250,7 @@ class SogoCanvasEditorProvider implements vscode.CustomTextEditorProvider {
 
 async function respondWithFilePath(
   webview: vscode.Webview,
+  documentUri: vscode.Uri,
   message: WebviewMessage
 ): Promise<void> {
   const pick = await vscode.window.showOpenDialog({
@@ -227,8 +265,17 @@ async function respondWithFilePath(
   });
 
   const value = pick?.[0]
-    ? vscode.workspace.asRelativePath(pick[0], false)
+    ? await resolveSelectedPath(documentUri, pick[0], message.accept)
     : undefined;
+
+  if (pick?.[0] && !value) {
+    const scope = vscode.workspace.getWorkspaceFolder(documentUri)
+      ? "the current workspace"
+      : "the canvas folder";
+    void vscode.window.showErrorMessage(
+      `Sogo Canvas can only reference files inside ${scope}.`
+    );
+  }
 
   const response: ExtensionResponseMessage = {
     type: "filePathResponse",
@@ -237,6 +284,23 @@ async function respondWithFilePath(
   };
 
   await webview.postMessage(response);
+}
+
+async function resolveSelectedPath(
+  documentUri: vscode.Uri,
+  selectedUri: vscode.Uri,
+  accept?: string
+): Promise<string | undefined> {
+  const relativePath = relativeCanvasPath(documentUri, selectedUri);
+  if (relativePath) {
+    return relativePath;
+  }
+
+  if (accept === "image") {
+    return importExternalImage(documentUri, selectedUri);
+  }
+
+  return undefined;
 }
 
 async function respondWithAssetUri(
@@ -252,9 +316,7 @@ async function respondWithAssetUri(
     return;
   }
 
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
-  const fileUri =
-    workspaceFolder && resolveWorkspaceRelativeUri(workspaceFolder.uri, message.path);
+  const fileUri = resolveCanvasRelativeUri(documentUri, message.path);
 
   const value = fileUri ? webview.asWebviewUri(fileUri).toString() : undefined;
 
@@ -265,8 +327,25 @@ async function respondWithAssetUri(
   } satisfies ExtensionResponseMessage);
 }
 
-function resolveWorkspaceRelativeUri(
-  workspaceRoot: vscode.Uri,
+async function respondWithFilePreview(
+  webview: vscode.Webview,
+  documentUri: vscode.Uri,
+  message: WebviewMessage
+): Promise<void> {
+  const fileUri = message.path
+    ? resolveCanvasRelativeUri(documentUri, message.path)
+    : undefined;
+  const content = fileUri ? await readFilePreview(fileUri) : undefined;
+
+  await webview.postMessage({
+    type: "filePreviewResponse",
+    requestId: message.requestId,
+    value: content
+  } satisfies ExtensionResponseMessage);
+}
+
+function resolveRelativeUri(
+  baseUri: vscode.Uri,
   requestedPath: string
 ): vscode.Uri | undefined {
   if (!requestedPath.trim()) {
@@ -282,7 +361,150 @@ function resolveWorkspaceRelativeUri(
     return undefined;
   }
 
-  return vscode.Uri.joinPath(workspaceRoot, normalized);
+  return vscode.Uri.joinPath(baseUri, normalized);
+}
+
+function documentDirectoryUri(documentUri: vscode.Uri): vscode.Uri {
+  return vscode.Uri.file(path.dirname(documentUri.fsPath));
+}
+
+function relativeCanvasPath(
+  documentUri: vscode.Uri,
+  selectedUri: vscode.Uri
+): string | undefined {
+  const documentWorkspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+  const selectedWorkspaceFolder = vscode.workspace.getWorkspaceFolder(selectedUri);
+
+  if (
+    documentWorkspaceFolder &&
+    selectedWorkspaceFolder?.uri.toString() !== documentWorkspaceFolder.uri.toString()
+  ) {
+    return undefined;
+  }
+
+  const baseUri = documentWorkspaceFolder?.uri ?? documentDirectoryUri(documentUri);
+  const relativePath = path
+    .relative(baseUri.fsPath, selectedUri.fsPath)
+    .replaceAll("\\", "/");
+  const normalized = path.posix.normalize(relativePath);
+
+  if (
+    !normalized ||
+    normalized === "." ||
+    path.posix.isAbsolute(normalized) ||
+    normalized.startsWith("../") ||
+    normalized === ".."
+  ) {
+    return undefined;
+  }
+
+  return normalized;
+}
+
+async function importExternalImage(
+  documentUri: vscode.Uri,
+  selectedUri: vscode.Uri
+): Promise<string | undefined> {
+  const canvasDirectory = documentDirectoryUri(documentUri);
+  const canvasName = path.basename(documentUri.fsPath, path.extname(documentUri.fsPath));
+  const assetDirectory = vscode.Uri.joinPath(
+    canvasDirectory,
+    `${canvasName}.assets`
+  );
+
+  await vscode.workspace.fs.createDirectory(assetDirectory);
+
+  const importedName = await nextAvailableImportName(
+    assetDirectory,
+    path.basename(selectedUri.fsPath)
+  );
+  const targetUri = vscode.Uri.joinPath(assetDirectory, importedName);
+
+  await vscode.workspace.fs.copy(selectedUri, targetUri, {
+    overwrite: false
+  });
+
+  return relativeCanvasPath(documentUri, targetUri);
+}
+
+async function nextAvailableImportName(
+  directoryUri: vscode.Uri,
+  filename: string
+): Promise<string> {
+  const parsed = path.parse(filename);
+  let attempt = 0;
+
+  while (attempt < 500) {
+    const candidate =
+      attempt === 0
+        ? `${parsed.name}${parsed.ext}`
+        : `${parsed.name}-${attempt + 1}${parsed.ext}`;
+    const candidateUri = vscode.Uri.joinPath(directoryUri, candidate);
+
+    try {
+      await vscode.workspace.fs.stat(candidateUri);
+      attempt += 1;
+    } catch {
+      return candidate;
+    }
+  }
+
+  return `${parsed.name}-${Date.now()}${parsed.ext}`;
+}
+
+function resolveCanvasRelativeUri(
+  documentUri: vscode.Uri,
+  requestedPath: string
+): vscode.Uri | undefined {
+  const documentWorkspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+  const baseUri = documentWorkspaceFolder?.uri ?? documentDirectoryUri(documentUri);
+  return resolveRelativeUri(baseUri, requestedPath);
+}
+
+async function readFilePreview(fileUri: vscode.Uri): Promise<string | undefined> {
+  if (!isPreviewableTextFile(fileUri)) {
+    return undefined;
+  }
+
+  try {
+    const bytes = await vscode.workspace.fs.readFile(fileUri);
+    const previewBytes = bytes.slice(0, 8192);
+
+    if (previewBytes.includes(0)) {
+      return undefined;
+    }
+
+    const decoded = new TextDecoder("utf-8", { fatal: false }).decode(previewBytes);
+    const normalized = decoded
+      .replaceAll("\r\n", "\n")
+      .replaceAll("\r", "\n")
+      .replaceAll("\t", "  ")
+      .trim();
+
+    if (!normalized) {
+      return undefined;
+    }
+
+    const excerpt = normalized
+      .split("\n")
+      .slice(0, 8)
+      .join("\n")
+      .slice(0, 420)
+      .trim();
+
+    if (!excerpt) {
+      return undefined;
+    }
+
+    return excerpt.length < normalized.length ? `${excerpt}…` : excerpt;
+  } catch {
+    return undefined;
+  }
+}
+
+function isPreviewableTextFile(fileUri: vscode.Uri): boolean {
+  const extension = path.extname(fileUri.fsPath).toLowerCase().replace(".", "");
+  return previewableTextExtensions.has(extension);
 }
 
 async function saveDocument(

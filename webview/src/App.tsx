@@ -16,7 +16,7 @@ import {
   applyEdgeChanges,
   applyNodeChanges
 } from "@xyflow/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 
 type SogoBackground = "plain" | "dots" | "grid";
 type SogoShape =
@@ -54,6 +54,7 @@ interface CanvasNodeData {
   y: number;
   width: number;
   height: number;
+  groupId?: string;
   text?: string;
   label?: string;
   color?: string;
@@ -91,10 +92,13 @@ interface PendingRequest {
 
 interface CanvasNodeViewData extends CanvasNodeData {
   assetUri?: string;
+  filePreview?: string;
   draftText?: string;
+  draftDetail?: string;
   isEditing?: boolean;
   onStartEdit?: () => void;
   onDraftChange?: (value: string) => void;
+  onDraftDetailChange?: (value: string) => void;
   onCommitEdit?: () => void;
   onCancelEdit?: () => void;
 }
@@ -117,7 +121,8 @@ const colorOptions = [
   "lavender",
   "rainbow"
 ] as const;
-type CanvasColor = (typeof colorOptions)[number];
+type CanvasColorPreset = (typeof colorOptions)[number];
+type CanvasColor = CanvasColorPreset | string;
 
 const shapeOptions: SogoShape[] = [
   "rect",
@@ -138,7 +143,7 @@ const shapeOptionSet = new Set<string>(shapeOptions);
 const borderOptionSet = new Set<string>(borderOptions);
 const alignOptionSet = new Set<string>(alignOptions);
 
-const colorAliases: Record<string, CanvasColor> = {
+const colorAliases: Record<string, CanvasColorPreset> = {
   "0": "default",
   "1": "pink",
   "2": "orange",
@@ -183,6 +188,32 @@ function normalizeToken(value?: string): string | undefined {
   return normalized && normalized.length > 0 ? normalized : undefined;
 }
 
+function isPresetColor(value: string): value is CanvasColorPreset {
+  return colorOptionSet.has(value);
+}
+
+function normalizeHexColor(value?: string): string | undefined {
+  const normalized = normalizeToken(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const shortHexMatch = normalized.match(/^#([0-9a-f]{3})$/i);
+  if (shortHexMatch) {
+    return `#${shortHexMatch[1]
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("")}`;
+  }
+
+  const longHexMatch = normalized.match(/^#([0-9a-f]{6})$/i);
+  return longHexMatch ? `#${longHexMatch[1]}` : undefined;
+}
+
+function isCustomColor(value?: string): boolean {
+  return Boolean(normalizeHexColor(value));
+}
+
 function normalizeColor(value?: string): CanvasColor {
   const normalized = normalizeToken(value);
 
@@ -194,7 +225,51 @@ function normalizeColor(value?: string): CanvasColor {
     return colorAliases[normalized];
   }
 
-  return colorOptionSet.has(normalized) ? (normalized as CanvasColor) : "default";
+  if (isPresetColor(normalized)) {
+    return normalized;
+  }
+
+  return normalizeHexColor(normalized) ?? "default";
+}
+
+function colorToRgb(color: string): [number, number, number] | null {
+  const normalized = normalizeHexColor(color);
+  if (!normalized) {
+    return null;
+  }
+
+  return [
+    Number.parseInt(normalized.slice(1, 3), 16),
+    Number.parseInt(normalized.slice(3, 5), 16),
+    Number.parseInt(normalized.slice(5, 7), 16)
+  ];
+}
+
+function customNodeToneStyle(color: string): CSSProperties {
+  const rgb = colorToRgb(color);
+  if (!rgb) {
+    return {};
+  }
+
+  const [red, green, blue] = rgb;
+  return {
+    "--node-accent": color,
+    "--node-fill": `rgba(${red}, ${green}, ${blue}, 0.16)`
+  } as CSSProperties;
+}
+
+function colorInputAnchorStyle(position: {
+  left: number;
+  top: number;
+} | null): CSSProperties | undefined {
+  if (!position) {
+    return undefined;
+  }
+
+  return {
+    left: position.left + 104,
+    top: position.top + 20
+  };
 }
 
 function normalizeShape(value?: string): SogoShape {
@@ -233,6 +308,7 @@ function normalizeLineStyle(value?: string): EdgeLineStyle {
 function normalizeNodeData(input: CanvasNodeData): CanvasNodeData {
   return {
     ...input,
+    groupId: input.groupId?.trim() || undefined,
     color: normalizeColor(input.color),
     sogo: {
       ...input.sogo,
@@ -279,8 +355,8 @@ function createNode(
     x: position.x,
     y: position.y,
     width:
-      type === "group" ? 360 : type === "image" ? 240 : type === "file" ? 220 : 180,
-    height: type === "group" ? 200 : type === "image" ? 200 : 72,
+      type === "group" ? 360 : type === "image" ? 240 : type === "file" ? 260 : 180,
+    height: type === "group" ? 200 : type === "image" ? 200 : type === "file" ? 148 : 72,
     color: "default",
     sogo: {
       shape: type === "group" ? "rect" : "rounded",
@@ -298,13 +374,14 @@ function createNode(
   }
 
   if (type === "file") {
-    base.label = partial?.file ?? "File reference";
+    base.label = partial?.file ? fileBasename(partial.file) : "File reference";
     base.file = partial?.file;
   }
 
   if (type === "image") {
-    base.label = partial?.file ?? "Image reference";
+    base.label = partial?.file ? fileBasename(partial.file) : "Image reference";
     base.file = partial?.file;
+    base.text = "";
   }
 
   return { ...base, ...partial };
@@ -319,6 +396,7 @@ function persistNodeData(input: unknown): CanvasNodeData {
     y: node.y,
     width: node.width,
     height: node.height,
+    groupId: node.groupId,
     text: node.text,
     label: node.label,
     color: node.color,
@@ -329,6 +407,25 @@ function persistNodeData(input: unknown): CanvasNodeData {
       border: node.sogo?.border,
       textAlign: node.sogo?.textAlign
     }
+  });
+}
+
+function flowNodeToCanvasData(node: Node): CanvasNodeData {
+  const base = persistNodeData(node.data);
+  return normalizeNodeData({
+    ...base,
+    x: node.position.x,
+    y: node.position.y,
+    width:
+      readDimension(node.measured?.width) ??
+      readDimension(node.width) ??
+      readDimension((node.style as { width?: unknown } | undefined)?.width) ??
+      base.width,
+    height:
+      readDimension(node.measured?.height) ??
+      readDimension(node.height) ??
+      readDimension((node.style as { height?: unknown } | undefined)?.height) ??
+      base.height
   });
 }
 
@@ -367,7 +464,12 @@ function readDimension(value: unknown): number | undefined {
 }
 
 function edgeStroke(color?: string): string {
-  switch (normalizeColor(color)) {
+  const normalized = normalizeColor(color);
+  if (isCustomColor(normalized)) {
+    return normalized;
+  }
+
+  switch (normalized) {
     case "pink":
       return "#f082a8";
     case "orange":
@@ -453,6 +555,49 @@ function isInsideGroup(node: CanvasNodeData, group: CanvasNodeData): boolean {
   );
 }
 
+function groupContainsNode(node: CanvasNodeData, group: CanvasNodeData): boolean {
+  return node.groupId === group.id || (!node.groupId && isInsideGroup(node, group));
+}
+
+function findContainingGroup(
+  node: CanvasNodeData,
+  nodes: CanvasNodeData[],
+  excludeGroupId?: string
+): CanvasNodeData | undefined {
+  return nodes
+    .filter(
+      (candidate) =>
+        candidate.type === "group" &&
+        candidate.id !== excludeGroupId &&
+        candidate.id !== node.id &&
+        isInsideGroup(node, candidate)
+    )
+    .sort((left, right) => left.width * left.height - right.width * right.height)[0];
+}
+
+function nextNodePositionInGroup(
+  type: CanvasNodeType,
+  group: CanvasNodeData,
+  members: CanvasNodeData[]
+): { x: number; y: number } {
+  const probe = createNode(type, { x: 0, y: 0 });
+  const paddingX = 28;
+  const paddingTop = 56;
+  const gap = 20;
+  const innerWidth = Math.max(probe.width, group.width - paddingX * 2);
+  const columns = Math.max(1, Math.floor((innerWidth + gap) / (probe.width + gap)));
+  const slot = members.length;
+  const column = slot % columns;
+  const row = Math.floor(slot / columns);
+  const x = group.x + paddingX + column * (probe.width + gap);
+  const y = group.y + paddingTop + row * (probe.height + gap);
+
+  return {
+    x: Math.min(x, group.x + group.width - probe.width - paddingX),
+    y: Math.min(y, group.y + group.height - probe.height - 24)
+  };
+}
+
 function flowToDocument(
   nodes: Node[],
   edges: Edge[],
@@ -470,6 +615,7 @@ function flowToDocument(
         ...nodeData,
         x: node.position.x,
         y: node.position.y,
+        groupId: nodeData.groupId ?? prev.groupId,
         width:
           readDimension(node.measured?.width) ??
           readDimension(node.width) ??
@@ -594,6 +740,23 @@ function requestAssetUri(path: string): Promise<string | undefined> {
   });
 }
 
+function requestFilePreview(path: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    if (!vscode) {
+      resolve(undefined);
+      return;
+    }
+
+    const requestId = crypto.randomUUID();
+    pendingRequests.set(requestId, { resolve });
+    vscode.postMessage({
+      type: "requestFilePreview",
+      requestId,
+      path
+    });
+  });
+}
+
 function displayTitle(node: CanvasNodeData): string {
   if (node.type === "text") {
     return node.text ?? "Untitled";
@@ -619,8 +782,98 @@ function fileExtension(path?: string): string {
   return parts.length > 1 ? parts.pop() ?? "" : "";
 }
 
+function filePathHint(path?: string): string | undefined {
+  if (!path) {
+    return undefined;
+  }
+
+  const name = fileBasename(path);
+  return path === name ? undefined : path;
+}
+
+function compactPathHint(path?: string, tailSegments = 2): string | undefined {
+  const hint = filePathHint(path);
+  if (!hint) {
+    return undefined;
+  }
+
+  const segments = hint.split("/").filter(Boolean);
+  if (segments.length <= tailSegments) {
+    return hint;
+  }
+
+  return `.../${segments.slice(-tailSegments).join("/")}`;
+}
+
+function truncateFilename(path?: string, maxStemLength = 24): string {
+  const name = fileBasename(path);
+  const extension = fileExtension(name);
+
+  if (!extension) {
+    return name.length > maxStemLength + 1
+      ? `${name.slice(0, maxStemLength)}...`
+      : name;
+  }
+
+  const suffix = `.${extension}`;
+  const stem = name.slice(0, -suffix.length);
+  if (stem.length <= maxStemLength) {
+    return name;
+  }
+
+  const head = Math.max(8, Math.ceil(maxStemLength * 0.6));
+  const tail = Math.max(4, maxStemLength - head);
+  return `${stem.slice(0, head)}...${stem.slice(-tail)}${suffix}`;
+}
+
+function formatFilePreview(preview?: string, extension?: string): string | undefined {
+  if (!preview) {
+    return undefined;
+  }
+
+  if (extension !== "md" && extension !== "mdx") {
+    return preview;
+  }
+
+  const lines = preview
+    .split("\n")
+    .map((line) =>
+      line
+        .replace(/^\s*#{1,6}\s+/, "")
+        .replace(/^\s*[-*+]\s+\[[ xX]\]\s+/, "")
+        .replace(/^\s*[-*+]\s+/, "")
+        .replace(/^\s*>\s+/, "")
+        .trim()
+    )
+    .filter((line) => line !== "```");
+
+  const cleaned: string[] = [];
+  for (const line of lines) {
+    const previous = cleaned[cleaned.length - 1];
+    if (!line) {
+      if (previous) {
+        cleaned.push("");
+      }
+      continue;
+    }
+    cleaned.push(line);
+  }
+
+  const result = cleaned.join("\n").trim();
+  return result || preview;
+}
+
+function displayImageTitle(node: CanvasNodeData): string {
+  const title = node.label?.trim();
+  if (title) {
+    return title;
+  }
+
+  return fileBasename(node.file) || "Image reference";
+}
+
 function canInlineEdit(type: CanvasNodeType): boolean {
-  return type === "text" || type === "group";
+  return type === "text" || type === "group" || type === "image";
 }
 
 function ToolbarIcon({ name }: { name: string }) {
@@ -744,14 +997,25 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
   const border = normalizeBorder(nodeData.sogo?.border);
   const align = normalizeTextAlign(nodeData.sogo?.textAlign);
   const color = normalizeColor(nodeData.color);
-  const ext = fileExtension(nodeData.file).toUpperCase();
+  const toneClass = isPresetColor(color) ? `tone-${color}` : "tone-custom";
+  const toneStyle = isCustomColor(color) ? customNodeToneStyle(color) : {};
+  const fileName = fileBasename(nodeData.file);
+  const fileHint = compactPathHint(nodeData.file);
+  const fileDisplayName = truncateFilename(nodeData.file, 28);
+  const imageDisplayName = truncateFilename(displayImageTitle(nodeData), 24);
+  const extension = fileExtension(nodeData.file).toLowerCase();
+  const ext = extension.toUpperCase();
+  const filePreview = formatFilePreview(nodeData.filePreview, extension);
+  const imageBody = nodeData.text?.trim();
 
   return (
     <div className="canvas-node-shell">
       <NodeResizer
         isVisible={isSelected && !nodeData.isEditing}
         minWidth={nodeData.type === "group" ? 220 : 140}
-        minHeight={nodeData.type === "image" ? 160 : 64}
+        minHeight={
+          nodeData.type === "image" ? 160 : nodeData.type === "file" ? 120 : 64
+        }
         lineClassName="node-resizer-line"
         handleClassName="node-resizer-handle"
       />
@@ -798,12 +1062,13 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
           `shape-${shape}`,
           `border-${border}`,
           `align-${align}`,
-          `tone-${color}`,
+          toneClass,
           isSelected ? "is-selected" : "",
           nodeData.isEditing ? "is-editing" : ""
         ].join(" ")}
         style={{
-          textAlign: align
+          textAlign: align,
+          ...toneStyle
         }}
       >
         {nodeData.type === "group" ? (
@@ -858,18 +1123,81 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
 
         {nodeData.type === "image" && nodeData.assetUri ? (
           <div className="node-image-preview">
-            <img src={nodeData.assetUri} alt={nodeData.label ?? "Image node"} />
+            <img src={nodeData.assetUri} alt={fileName || "Image node"} />
           </div>
+        ) : null}
+
+        {nodeData.type === "image" && !nodeData.assetUri ? (
+          <div className="node-image-placeholder">{imageDisplayName || "Image"}</div>
+        ) : null}
+
+        {nodeData.type === "image" && !nodeData.isEditing ? (
+          <div className="node-image-title">{imageDisplayName || "Image reference"}</div>
+        ) : null}
+
+        {nodeData.type === "image" && nodeData.isEditing ? (
+          <div className="node-image-editor-wrap">
+            <input
+              autoFocus
+              className="node-image-title-editor nodrag nopan"
+              value={nodeData.draftText ?? ""}
+              placeholder="Image title"
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => nodeData.onDraftChange?.(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  nodeData.onCancelEdit?.();
+                }
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  nodeData.onCommitEdit?.();
+                }
+              }}
+            />
+            <textarea
+              className="node-image-body-editor nodrag nopan"
+              value={nodeData.draftDetail ?? ""}
+              placeholder="Add context, role, notes, or stakeholder details"
+              rows={4}
+              onMouseDown={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+              onChange={(event) => nodeData.onDraftDetailChange?.(event.target.value)}
+              onBlur={() => nodeData.onCommitEdit?.()}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  nodeData.onCancelEdit?.();
+                }
+                if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+                  event.preventDefault();
+                  nodeData.onCommitEdit?.();
+                }
+              }}
+            />
+          </div>
+        ) : null}
+
+        {nodeData.type === "image" && !nodeData.isEditing && imageBody ? (
+          <div className="node-image-body">{imageBody}</div>
         ) : null}
 
         {nodeData.type === "file" ? (
-          <div className="node-file-header">
-            <div className="node-file-chip">{ext || "FILE"}</div>
-            <div className="node-file-title">{fileBasename(nodeData.file)}</div>
-          </div>
+          <>
+            <div className="node-file-header">
+              <div className="node-file-chip">{ext || "FILE"}</div>
+              <div className="node-file-title">{fileDisplayName || "File reference"}</div>
+            </div>
+            <div className="node-file-preview">
+              {filePreview ?? "Reference to this file."}
+            </div>
+          </>
         ) : null}
 
-        {nodeData.isEditing && nodeData.type !== "group" ? (
+        {nodeData.isEditing && nodeData.type === "text" ? (
           <textarea
             autoFocus
             className="node-editor nodrag nopan"
@@ -890,7 +1218,7 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
               }
             }}
           />
-        ) : nodeData.type !== "group" ? (
+        ) : nodeData.type === "text" ? (
           <div
             className="node-content"
             onDoubleClick={() => {
@@ -903,7 +1231,7 @@ function CanvasNodeComponent({ data, selected }: NodeProps) {
           </div>
         ) : null}
 
-        {nodeData.file ? <div className="node-meta">{nodeData.file}</div> : null}
+        {fileHint ? <div className="node-meta">{fileHint}</div> : null}
       </div>
     </div>
   );
@@ -944,10 +1272,15 @@ export default function App() {
   const [bottomPanel, setBottomPanel] = useState<BottomPanel>(null);
   const [selectionPanel, setSelectionPanel] = useState<SelectionPanel>(null);
   const [edgePanel, setEdgePanel] = useState<EdgePanel>(null);
+  const nodeColorInputRef = useRef<HTMLInputElement>(null);
+  const edgeColorInputRef = useRef<HTMLInputElement>(null);
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
+  const [draftDetail, setDraftDetail] = useState("");
   const [assetUris, setAssetUris] = useState<Record<string, string>>({});
+  const [filePreviews, setFilePreviews] = useState<Record<string, string>>({});
   const pendingAssetPathsRef = useRef<Set<string>>(new Set());
+  const pendingFilePreviewPathsRef = useRef<Set<string>>(new Set());
   const saveTimerRef = useRef<number | null>(null);
   const loadedRef = useRef(false);
   const currentContentRef = useRef(serializeDocument(createEmptyDocument()));
@@ -967,7 +1300,7 @@ export default function App() {
 
   const selectedNode = useMemo(() => {
     const selected = nodes.find((node) => node.id === selectedNodeId);
-    return selected ? persistNodeData(selected.data) : null;
+    return selected ? flowNodeToCanvasData(selected) : null;
   }, [nodes, selectedNodeId]);
 
   const selectedEdge = useMemo(() => {
@@ -1006,14 +1339,17 @@ export default function App() {
   const renderedNodes = useMemo(
     () =>
       nodes.map((node) => {
-        const base = persistNodeData(node.data);
+        const base = flowNodeToCanvasData(node);
         const viewData: CanvasNodeViewData = {
           ...base,
           assetUri: base.file ? assetUris[base.file] : undefined,
+          filePreview: base.file ? filePreviews[base.file] : undefined,
           draftText,
+          draftDetail,
           isEditing: editingNodeId === node.id,
           onStartEdit: () => startEditingNode(node.id),
           onDraftChange: setDraftText,
+          onDraftDetailChange: setDraftDetail,
           onCommitEdit: commitEdit,
           onCancelEdit: cancelEdit
         };
@@ -1028,7 +1364,16 @@ export default function App() {
           data: viewData as unknown as Record<string, unknown>
         };
       }),
-    [nodes, assetUris, editingNodeId, draftText, selectedNodeId, selectedNodeIdSet]
+    [
+      nodes,
+      assetUris,
+      filePreviews,
+      editingNodeId,
+      draftText,
+      draftDetail,
+      selectedNodeId,
+      selectedNodeIdSet
+    ]
   );
 
   useEffect(() => {
@@ -1061,7 +1406,8 @@ export default function App() {
 
       if (
         (message.type === "filePathResponse" ||
-          message.type === "assetUriResponse") &&
+          message.type === "assetUriResponse" ||
+          message.type === "filePreviewResponse") &&
         message.requestId &&
         pendingRequests.has(message.requestId)
       ) {
@@ -1217,7 +1563,7 @@ export default function App() {
     const imagePaths = nodes
       .map((node) => persistNodeData(node.data))
       .filter((node) => node.type === "image" && node.file)
-      .map((node) => node.file!) ;
+      .map((node) => node.file!);
 
     for (const path of imagePaths) {
       if (assetUris[path] || pendingAssetPathsRef.current.has(path)) {
@@ -1237,6 +1583,31 @@ export default function App() {
       });
     }
   }, [nodes, assetUris]);
+
+  useEffect(() => {
+    const filePaths = nodes
+      .map((node) => persistNodeData(node.data))
+      .filter((node) => node.type === "file" && node.file)
+      .map((node) => node.file!);
+
+    for (const path of filePaths) {
+      if (filePreviews[path] || pendingFilePreviewPathsRef.current.has(path)) {
+        continue;
+      }
+
+      pendingFilePreviewPathsRef.current.add(path);
+      void requestFilePreview(path).then((value) => {
+        pendingFilePreviewPathsRef.current.delete(path);
+        if (!value) {
+          return;
+        }
+        setFilePreviews((current) => ({
+          ...current,
+          [path]: value
+        }));
+      });
+    }
+  }, [nodes, filePreviews]);
 
   function updateCanvasMeta(next: SogoCanvasMeta): void {
     setDocumentState((current) => ({
@@ -1334,7 +1705,10 @@ export default function App() {
       return;
     }
     setEditingNodeId(nodeId);
-    setDraftText(displayTitle(persisted));
+    setDraftText(
+      persisted.type === "image" ? displayImageTitle(persisted) : displayTitle(persisted)
+    );
+    setDraftDetail(persisted.type === "image" ? persisted.text ?? "" : "");
   }
 
   function commitEdit(): void {
@@ -1352,7 +1726,9 @@ export default function App() {
     patchNode(editingNodeId, (current) =>
       current.type === "text"
         ? { ...current, text: draftText }
-        : { ...current, label: draftText }
+        : current.type === "image"
+          ? { ...current, label: draftText, text: draftDetail }
+          : { ...current, label: draftText }
     );
 
     if (selectedNodeId !== persisted.id) {
@@ -1361,23 +1737,39 @@ export default function App() {
 
     setEditingNodeId(null);
     setDraftText("");
+    setDraftDetail("");
   }
 
   function cancelEdit(): void {
     setEditingNodeId(null);
     setDraftText("");
+    setDraftDetail("");
   }
 
   function addNodeOfType(type: CanvasNodeType, partial?: Partial<CanvasNodeData>) {
+    const selectedGroup =
+      selectedNode && selectedNode.type === "group" ? selectedNode : null;
+    const groupMembers = selectedGroup
+      ? nodes
+          .map(flowNodeToCanvasData)
+          .filter((node) => node.type !== "group" && groupContainsNode(node, selectedGroup))
+      : [];
     const offset = nodes.length * 24;
-    const node = createNode(type, { x: 180 + offset, y: 140 + offset }, partial);
+    const position = selectedGroup
+      ? nextNodePositionInGroup(type, selectedGroup, groupMembers)
+      : { x: 180 + offset, y: 140 + offset };
+    const node = createNode(type, position, {
+      ...partial,
+      groupId: selectedGroup?.id
+    });
     setNodes((current) => [...current, nodeToFlowNode(node)]);
     setSelectedNodeId(node.id);
     setSelectedNodeIds([node.id]);
     setBottomPanel(null);
     if (canInlineEdit(type)) {
       setEditingNodeId(node.id);
-      setDraftText(displayTitle(node));
+      setDraftText(type === "image" ? displayImageTitle(node) : displayTitle(node));
+      setDraftDetail(type === "image" ? node.text ?? "" : "");
     }
   }
 
@@ -1385,10 +1777,18 @@ export default function App() {
     setSelectionPanel((current) => (current === panel ? null : panel));
   }
 
+  function openNodeCustomColorPicker(): void {
+    nodeColorInputRef.current?.click();
+  }
+
+  function openEdgeCustomColorPicker(): void {
+    edgeColorInputRef.current?.click();
+  }
+
   function createGroupFromSelection(nodeIds: string[]): void {
     const selected = nodes
       .filter((node) => nodeIds.includes(node.id))
-      .map((node) => persistNodeData(node.data))
+      .map(flowNodeToCanvasData)
       .filter((node) => node.type !== "group");
 
     if (selected.length < 2) {
@@ -1399,16 +1799,33 @@ export default function App() {
     const groupNode = createNode("group", { x: bounds.x, y: bounds.y }, bounds);
 
     suppressSelectionChangeRef.current = true;
-    setNodes((current) => [
-      {
-        ...nodeToFlowNode(groupNode),
-        selected: true
-      },
-      ...current.map((node) => ({
-        ...node,
-        selected: false
-      }))
-    ]);
+    setNodes((current) => {
+      const selectedIdSet = new Set(nodeIds);
+      return [
+        {
+          ...nodeToFlowNode(groupNode),
+          selected: true
+        },
+        ...current.map((node) => {
+          if (!selectedIdSet.has(node.id)) {
+            return {
+              ...node,
+              selected: false
+            };
+          }
+
+          const base = persistNodeData(node.data);
+          return {
+            ...node,
+            selected: false,
+            data: {
+              ...base,
+              groupId: groupNode.id
+            } as unknown as Record<string, unknown>
+          };
+        })
+      ];
+    });
     setSelectedNodeId(groupNode.id);
     setSelectedNodeIds([groupNode.id]);
 
@@ -1422,7 +1839,7 @@ export default function App() {
     if (!file) {
       return;
     }
-    addNodeOfType("file", { file, label: file });
+    addNodeOfType("file", { file, label: fileBasename(file) });
   }
 
   async function addImageNode(): Promise<void> {
@@ -1430,7 +1847,7 @@ export default function App() {
     if (!file) {
       return;
     }
-    addNodeOfType("image", { file, label: file });
+    addNodeOfType("image", { file, label: fileBasename(file) });
   }
 
   function handlePaneDoubleClick(): void {
@@ -1492,7 +1909,24 @@ export default function App() {
       return;
     }
 
-    setNodes((current) => current.filter((node) => node.id !== selectedNodeId));
+    setNodes((current) =>
+      current
+        .filter((node) => node.id !== selectedNodeId)
+        .map((node) => {
+          const base = persistNodeData(node.data);
+          if (base.groupId !== selectedNodeId) {
+            return node;
+          }
+
+          return {
+            ...node,
+            data: {
+              ...base,
+              groupId: undefined
+            } as unknown as Record<string, unknown>
+          };
+        })
+    );
     setEdges((current) =>
       current.filter(
         (edge) => edge.source !== selectedNodeId && edge.target !== selectedNodeId
@@ -1503,16 +1937,19 @@ export default function App() {
   }
 
   function handleNodeDragStart(_: React.MouseEvent, node: Node): void {
-    const persisted = persistNodeData(node.data);
+    const persisted = flowNodeToCanvasData(node);
     if (persisted.type !== "group") {
       groupDragRef.current = null;
       return;
     }
 
     const members = nodes
-      .map((item) => persistNodeData(item.data))
+      .map(flowNodeToCanvasData)
       .filter(
-        (item) => item.id !== persisted.id && item.type !== "group" && isInsideGroup(item, persisted)
+        (item) =>
+          item.id !== persisted.id &&
+          item.type !== "group" &&
+          groupContainsNode(item, persisted)
       );
 
     groupDragRef.current = {
@@ -1559,7 +1996,34 @@ export default function App() {
     );
   }
 
-  function handleNodeDragStop(): void {
+  function handleNodeDragStop(_: React.MouseEvent, node: Node): void {
+    const moved = flowNodeToCanvasData(node);
+
+    if (moved.type !== "group") {
+      setNodes((current) => {
+        const next = current.map((item) =>
+          item.id === node.id ? { ...item, position: node.position } : item
+        );
+        const canvasNodes = next.map(flowNodeToCanvasData);
+        const nextGroup = findContainingGroup(moved, canvasNodes);
+
+        return next.map((item) => {
+          if (item.id !== node.id) {
+            return item;
+          }
+
+          const base = persistNodeData(item.data);
+          return {
+            ...item,
+            data: {
+              ...base,
+              groupId: nextGroup?.id
+            } as unknown as Record<string, unknown>
+          };
+        });
+      });
+    }
+
     groupDragRef.current = null;
   }
 
@@ -1798,8 +2262,8 @@ export default function App() {
               </button>
               {selectedNode && canInlineEdit(selectedNode.type) ? (
                 <button
-                  title="Edit text"
-                  aria-label="Edit text"
+                  title="Edit content"
+                  aria-label="Edit content"
                   className="toolbar-command"
                   onClick={() => startEditingNode(selectedNode.id)}
                 >
@@ -1818,12 +2282,22 @@ export default function App() {
                       key={color}
                       className={[
                         "swatch-button",
-                        selectedNode.color === color ? "is-active" : ""
+                        color === "rainbow"
+                          ? selectedNode !== null &&
+                            (normalizeColor(selectedNode.color) === "rainbow" ||
+                              isCustomColor(normalizeColor(selectedNode.color)))
+                            ? "is-active"
+                            : ""
+                          : normalizeColor(selectedNode.color) === color
+                            ? "is-active"
+                            : ""
                       ].join(" ")}
                       onClick={() =>
-                        updateSelectedNode((node) => ({ ...node, color }))
+                        color === "rainbow"
+                          ? openNodeCustomColorPicker()
+                          : updateSelectedNode((node) => ({ ...node, color }))
                       }
-                      title={color}
+                      title={color === "rainbow" ? "Custom color" : color}
                     >
                       <span className={`color-swatch color-swatch-${color}`} />
                     </button>
@@ -2006,12 +2480,22 @@ export default function App() {
                     key={color}
                     className={[
                       "swatch-button",
-                      selectedEdge.color === color ? "is-active" : ""
+                      color === "rainbow"
+                        ? selectedEdge !== null &&
+                          (normalizeColor(selectedEdge.color) === "rainbow" ||
+                            isCustomColor(normalizeColor(selectedEdge.color)))
+                          ? "is-active"
+                          : ""
+                        : normalizeColor(selectedEdge.color) === color
+                          ? "is-active"
+                          : ""
                     ].join(" ")}
                     onClick={() =>
-                      updateSelectedEdge((edge) => ({ ...edge, color }))
+                      color === "rainbow"
+                        ? openEdgeCustomColorPicker()
+                        : updateSelectedEdge((edge) => ({ ...edge, color }))
                     }
-                    title={color}
+                    title={color === "rainbow" ? "Custom color" : color}
                   >
                     <span className={`color-swatch color-swatch-${color}`} />
                   </button>
@@ -2021,6 +2505,40 @@ export default function App() {
           ) : null}
         </div>
       ) : null}
+
+      <input
+        ref={nodeColorInputRef}
+        type="color"
+        className="native-color-input"
+        style={colorInputAnchorStyle(toolbarPosition)}
+        tabIndex={-1}
+        aria-hidden="true"
+        value={
+          isCustomColor(selectedNode?.color)
+            ? normalizeColor(selectedNode?.color)
+            : "#5b8cff"
+        }
+        onChange={(event) =>
+          updateSelectedNode((node) => ({ ...node, color: event.target.value }))
+        }
+      />
+
+      <input
+        ref={edgeColorInputRef}
+        type="color"
+        className="native-color-input"
+        style={colorInputAnchorStyle(edgeToolbarPosition)}
+        tabIndex={-1}
+        aria-hidden="true"
+        value={
+          isCustomColor(selectedEdge?.color)
+            ? normalizeColor(selectedEdge?.color)
+            : "#5b8cff"
+        }
+        onChange={(event) =>
+          updateSelectedEdge((edge) => ({ ...edge, color: event.target.value }))
+        }
+      />
 
       <div className="toolbar-stack">
         {bottomPanel === "background" ? (
@@ -2087,7 +2605,7 @@ export default function App() {
               <ToolbarIcon name="group" />
             </button>
             <button
-              title="Add file reference"
+              title="Add File"
               aria-label="Add file reference"
               className="insert-button"
               onClick={addFileNode}
@@ -2095,7 +2613,7 @@ export default function App() {
               <ToolbarIcon name="file" />
             </button>
             <button
-              title="Add image reference"
+              title="Add Image"
               aria-label="Add image reference"
               className="insert-button"
               onClick={addImageNode}
