@@ -1,32 +1,52 @@
 # Sogo Canvas
 
-Sogo Canvas is a VS Code custom editor for `.canvas` files. It gives you a theme-native infinite canvas inside the editor, backed by a readable JSON document you can keep in your repo.
+A theme-native infinite canvas for VS Code. Open `.canvas` files and you get a full canvas editor inside the editor — text cards, groups, connectors, file references, and image references. Everything saves back to plain JSON you can inspect, diff, and generate.
 
-The current build is intentionally focused: a clean canvas surface, a small set of useful node types, and a file format that stays easy to diff, inspect, and generate.
+![Sogo Canvas — dark theme with groups and connectors](media/Sogo-Canvas-demo-1.png)
 
-## What it does
+## Why this exists
 
-- Opens `.canvas` files in a custom editor inside VS Code.
-- Creates new canvases with the `Sogo Canvas: New Canvas` command.
-- Supports text cards, groups, file references, and image references.
-- Supports connectors with color, dashed/solid state, and optional arrowheads.
-- Persists canvas background, snap-to-grid, and viewport state in the document.
-- Auto-saves back to JSON as you edit.
-- Uses VS Code theme tokens so the canvas feels native in light and dark themes.
+Most VS Code canvas tools work, but they feel imported. Sogo Canvas reads your active theme's color tokens directly, so the surface adapts whether you're in a dark theme, a light theme, or something custom. The interaction model stays small: a few node types, a small toolbar, and canvas settings that live in the file.
 
-## Current interaction model
+![Sogo Canvas — light theme](media/Sogo-Canvas-demo-light.png)
 
-- Double-click empty space to insert a text card.
-- Use the bottom toolbar to insert cards, groups, file references, and image references.
-- Double-click or press `Enter` on a text card or group to edit inline.
-- Drag from node handles to connect nodes.
-- Select multiple nodes with marquee selection to wrap them in a group.
-- Use `Delete` or `Backspace` to remove the selected node or connector.
-- Use the background tray to switch between plain, dot, and grid canvas modes, and to toggle snap-to-grid.
+## Getting started
+
+Open any `.canvas` file and the custom editor loads automatically. To start fresh, run **Sogo Canvas: New Canvas** from the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`).
+
+A sample canvas (`test.canvas`) is included in the repo if you want to see a populated document before building your own.
+
+## Using the canvas
+
+### Adding nodes
+
+Double-click any empty area of the canvas to insert a text card. The toolbar at the bottom of the canvas gives you access to all node types: text cards, groups, file references, and image references.
+
+### Editing text
+
+Double-click a text card or group to edit it inline. You can also press `Enter` while a node is selected.
+
+### Connecting nodes
+
+Drag from any handle on the edge of a node to another node to create a connector. Connectors support color, dashed or solid line style, and optional arrowheads. To change connector appearance, select the connector and use the toolbar options that appear.
+
+### Selecting multiple nodes
+
+Click and drag over empty space to marquee-select a region. Once you have multiple nodes selected, you can move them together or wrap them in a group.
+
+### Removing nodes and connectors
+
+Select any node or connector and press `Delete` or `Backspace`.
+
+### Canvas background and snap
+
+![Canvas background tray and toolbar](media/Sogo-Canvas-Toolbar.png)
+
+The background tray at the bottom of the canvas lets you switch between plain, dot, and grid backgrounds, and toggle snap-to-grid on or off. Your current background choice and viewport position are saved into the document.
 
 ## File format
 
-Canvas documents are JSON with three top-level sections:
+`.canvas` files are JSON with three top-level sections:
 
 ```json
 {
@@ -44,90 +64,56 @@ Canvas documents are JSON with three top-level sections:
 }
 ```
 
-Node types currently supported:
+**Node types:** `text`, `group`, `file`, `image`
 
-- `text`
-- `group`
-- `file`
-- `image`
+Each node stores position, size, styling metadata, and any text content or file path. Each edge stores the source and target node IDs, handle sides, color, line style, and arrowhead state.
 
-Each node stores position, size, styling metadata, and optional text or file-path data. Each edge stores source and target node ids, handle sides, color, line style, and arrowhead state.
+Because the format is plain JSON, you can create or modify `.canvas` files programmatically, check them into version control, and diff them like any other document.
 
-The repo includes [`test.canvas`](/Users/adamking/projects/sogo-work/sogo-canvas/test.canvas) as a larger example document you can open in the editor.
+## Development setup
 
-## Repository layout
-
-- [`extension`](/Users/adamking/projects/sogo-work/sogo-canvas/extension): VS Code extension host code and packaged webview assets.
-- [`webview`](/Users/adamking/projects/sogo-work/sogo-canvas/webview): React-based canvas UI built with Vite.
-- [`logo-bauhaus-s-dark-primary.svg`](/Users/adamking/projects/sogo-work/sogo-canvas/logo-bauhaus-s-dark-primary.svg): source artwork for the extension icon.
-
-## Development
-
-Requirements:
-
-- Node.js 20+ is the safe baseline for current tooling.
-- npm workspaces enabled via the default npm client.
-- VS Code 1.89+ to match the extension engine range.
-
-Install dependencies:
+**Requirements:** Node.js 20+, VS Code 1.89+
 
 ```bash
 npm install
-```
-
-Build everything:
-
-```bash
 npm run build
 ```
 
-Type-check everything:
+To run with live reloading:
+
+1. Open the repo in VS Code.
+2. Run `npm install` once if you haven't already.
+3. Run `npm run watch` to keep the build current.
+4. Open the Run and Debug panel and start the extension host.
+
+Changes to the webview source in `/webview` rebuild on save. Extension host changes in `/extension` require restarting the extension host.
+
+To type-check without building:
 
 ```bash
 npm run typecheck
 ```
 
-Run in development:
+## Repository layout
 
-1. Open the repository in VS Code.
-2. Run `npm install` once.
-3. Run `npm run build` or `npm run watch`.
-4. Start the extension host from VS Code's Run and Debug panel.
+- `/extension` — VS Code extension host code and packaged webview assets
+- `/webview` — React canvas UI, built with Vite
 
 ## Packaging and publishing
 
-The publishable extension lives in [`extension`](/Users/adamking/projects/sogo-work/sogo-canvas/extension).
-
-Package a VSIX:
+The publishable extension lives in `/extension`.
 
 ```bash
 cd extension
-npx @vscode/vsce package
+npx @vscode/vsce package    # produces a .vsix
+npx @vscode/vsce publish    # publishes to VS Code Marketplace
 ```
 
-Publish to Marketplace:
+A few things worth knowing before you publish:
 
-```bash
-cd extension
-npx @vscode/vsce publish
-```
+- The VS Code Marketplace does not allow SVG extension icons. The packaged icon is `extension/icon.png`, generated from the source SVG at the root.
+- Marketplace publishing also rejects SVG images inside README content. Any screenshots you embed should be HTTPS-hosted PNG or JPG files.
 
-Notes:
+## Status
 
-- VS Code Marketplace does not allow SVG extension icons. The packaged icon is [`extension/icon.png`](/Users/adamking/projects/sogo-work/sogo-canvas/extension/icon.png), generated from the source SVG.
-- If you add images to the marketplace README later, keep them as HTTPS-hosted PNG or JPG assets. Marketplace publishing rejects user-provided SVG images in README content.
-
-## Screenshots
-
-Screenshots are not required for GitHub or for VS Code Marketplace publication, but this extension is highly visual, so they are strongly recommended before a wider release. Two or three focused shots would do most of the work:
-
-- an empty themed canvas
-- a realistic canvas with grouped nodes and connectors
-- the contextual toolbar and background controls
-
-## Status and gaps
-
-- Early version: `0.0.1`
-- No automated test suite is wired up yet.
-- License is currently marked `UNLICENSED`.
-- The editor currently prioritizes a clean core interaction model over advanced canvas features like rich node types, collaboration, or export flows.
+Version `0.0.1`. Early release. No automated test suite yet. License is currently `UNLICENSED`.
