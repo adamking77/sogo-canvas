@@ -2,6 +2,8 @@
 
 Sogo Canvas is a VS Code custom editor for `.canvas` files. It gives you a theme-native infinite canvas inside the editor, backed by a readable JSON document you can keep in your repo.
 
+Created by [GoKart Studio](https://gokart.studio).
+
 The current build is intentionally focused: a clean canvas surface, a small set of useful node types, and a file format that stays easy to diff, inspect, and generate.
 
 ## What it does
@@ -85,19 +87,20 @@ Run locally:
 Package a VSIX from this folder:
 
 ```bash
-npx @vscode/vsce package
+npx @vscode/vsce package --no-dependencies
 ```
 
 Publish to Marketplace:
 
 ```bash
-npx @vscode/vsce publish
+npx @vscode/vsce publish --no-dependencies
 ```
 
 Notes:
 
 - VS Code Marketplace does not allow SVG extension icons. This extension ships with `icon.png`, generated from the source artwork in the repository root.
 - If you add README images later, keep them as HTTPS-hosted PNG or JPG assets. Marketplace publishing rejects user-provided SVG images in README content.
+- This repo is an npm workspace, so package from `/extension` with `--no-dependencies` to avoid pulling unrelated repo files into the VSIX.
 
 ## Screenshots
 

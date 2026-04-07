@@ -107,6 +107,63 @@ body {
   z-index: 1;
 }
 
+.document-error-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--canvas-bg) 84%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.document-error-card {
+  width: min(560px, 100%);
+  padding: 24px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--canvas-surface) 94%, black 4%);
+  border: 1px solid var(--toolbar-border);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.document-error-card h1 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+.document-error-card p {
+  margin: 0 0 14px;
+  color: var(--canvas-text-muted);
+  line-height: 1.5;
+}
+
+.document-error-card pre {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  overflow: auto;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--canvas-bg) 86%, white 4%);
+  border: 1px solid var(--toolbar-border);
+  color: var(--canvas-text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.document-error-button {
+  border: 1px solid color-mix(in srgb, var(--canvas-accent) 50%, transparent);
+  background: color-mix(in srgb, var(--canvas-accent) 18%, var(--canvas-surface));
+  color: var(--canvas-text);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.document-error-button:hover {
+  border-color: color-mix(in srgb, var(--canvas-accent) 72%, transparent);
+}
+
 .react-flow,
 .react-flow__container,
 .react-flow__renderer,

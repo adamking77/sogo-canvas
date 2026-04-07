@@ -2,6 +2,8 @@
 
 A theme-native infinite canvas for VS Code. Open `.canvas` files and you get a full canvas editor inside the editor — text cards, groups, connectors, file references, and image references. Everything saves back to plain JSON you can inspect, diff, and generate.
 
+Created by [GoKart Studio](https://gokart.studio).
+
 ![Sogo Canvas — dark theme with groups and connectors](media/Sogo-Canvas-demo-1.png)
 
 ## Why this exists
@@ -105,14 +107,15 @@ The publishable extension lives in `/extension`.
 
 ```bash
 cd extension
-npx @vscode/vsce package    # produces a .vsix
-npx @vscode/vsce publish    # publishes to VS Code Marketplace
+npx @vscode/vsce package --no-dependencies    # produces a .vsix
+npx @vscode/vsce publish --no-dependencies    # publishes to VS Code Marketplace
 ```
 
 A few things worth knowing before you publish:
 
 - The VS Code Marketplace does not allow SVG extension icons. The packaged icon is `extension/icon.png`, generated from the source SVG at the root.
 - Marketplace publishing also rejects SVG images inside README content. Any screenshots you embed should be HTTPS-hosted PNG or JPG files.
+- Because this repo is an npm workspace, package from `/extension` with `--no-dependencies` so `vsce` does not try to bundle the monorepo root.
 
 ## Status
 

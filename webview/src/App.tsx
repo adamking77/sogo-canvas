@@ -1253,6 +1253,7 @@ export default function App() {
   const [documentState, setDocumentState] = useState<CanvasDocumentData>(
     createEmptyDocument()
   );
+  const [documentError, setDocumentError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -1380,6 +1381,7 @@ export default function App() {
       const message = event.data as {
         type: string;
         content?: string;
+        error?: string;
         requestId?: string;
         value?: string;
       };
@@ -1393,14 +1395,29 @@ export default function App() {
           return;
         }
 
-        const next = parseDocument(message.content);
-        loadedRef.current = true;
-        outboundContentRef.current = null;
-        pendingViewportInitRef.current =
-          next.sogo?.viewport ?? (next.nodes.length > 0 ? "fit" : null);
-        setDocumentState(next);
-        setNodes(next.nodes.map(nodeToFlowNode));
-        setEdges(next.edges.map(edgeToFlowEdge));
+        try {
+          const next = parseDocument(message.content);
+          loadedRef.current = true;
+          outboundContentRef.current = null;
+          pendingViewportInitRef.current =
+            next.sogo?.viewport ?? (next.nodes.length > 0 ? "fit" : null);
+          setDocumentError(null);
+          setDocumentState(next);
+          setNodes(next.nodes.map(nodeToFlowNode));
+          setEdges(next.edges.map(edgeToFlowEdge));
+        } catch (error) {
+          loadedRef.current = false;
+          outboundContentRef.current = null;
+          currentContentRef.current = message.content;
+          pendingViewportInitRef.current = null;
+          setDocumentError(
+            message.error ??
+              (error instanceof Error ? error.message : "Invalid canvas document.")
+          );
+          setDocumentState(createEmptyDocument());
+          setNodes([]);
+          setEdges([]);
+        }
       }
 
       if (
@@ -2054,6 +2071,25 @@ export default function App() {
       ref={shellRef}
       className={`app-shell background-${documentState.sogo?.background ?? "dots"}`}
     >
+      {documentError ? (
+        <div className="document-error-overlay" role="alert">
+          <div className="document-error-card">
+            <h1>Invalid canvas document</h1>
+            <p>
+              Sogo Canvas could not parse this `.canvas` file. Fix the JSON in the
+              text editor, then reopen the canvas.
+            </p>
+            <pre>{documentError}</pre>
+            <button
+              type="button"
+              className="document-error-button"
+              onClick={() => vscode?.postMessage({ type: "reopenAsText" })}
+            >
+              Open Text Editor
+            </button>
+          </div>
+        </div>
+      ) : null}
       <ReactFlow
         nodes={renderedNodes}
         edges={renderedEdges}
