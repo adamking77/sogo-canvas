@@ -6,6 +6,10 @@ Created by [GoKart Studio](https://gokart.studio).
 
 The current build is intentionally focused: a clean canvas surface, a small set of useful node types, and a file format that stays easy to diff, inspect, and generate.
 
+![Sogo Canvas — dark theme with groups and connectors](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-demo-1.png)
+
+![Sogo Canvas — light theme](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-demo-light.png)
+
 ## What it does
 
 - Opens `.canvas` files in a custom editor inside VS Code.
@@ -25,6 +29,8 @@ The current build is intentionally focused: a clean canvas surface, a small set 
 - Select multiple nodes with marquee selection to wrap them in a group.
 - Use `Delete` or `Backspace` to remove the selected node or connector.
 - Use the background tray to switch between plain, dot, and grid canvas modes, and to toggle snap-to-grid.
+
+![Canvas background tray and toolbar](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-Toolbar.png)
 
 ## File format
 
@@ -101,7 +107,3 @@ Notes:
 - VS Code Marketplace does not allow SVG extension icons. This extension ships with `icon.png`, generated from the source artwork in the repository root.
 - If you add README images later, keep them as HTTPS-hosted PNG or JPG assets. Marketplace publishing rejects user-provided SVG images in README content.
 - This repo is an npm workspace, so package from `/extension` with `--no-dependencies` to avoid pulling unrelated repo files into the VSIX.
-
-## Screenshots
-
-Screenshots are not required, but they are strongly recommended for a canvas extension. Two or three focused screenshots will materially improve the Marketplace page.

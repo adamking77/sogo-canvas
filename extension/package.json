@@ -8,13 +8,30 @@
     "name": "GoKart Studio",
     "url": "https://gokart.studio"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "repository": "https://gokart.studio",
   "bugs": {
     "url": "https://gokart.studio"
   },
   "homepage": "https://gokart.studio",
   "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#10233B",
+    "theme": "dark"
+  },
+  "preview": true,
+  "keywords": [
+    "canvas",
+    "diagram",
+    "whiteboard",
+    "mind map",
+    "visualization",
+    "custom editor",
+    "notes",
+    "infinite canvas",
+    "knowledge map",
+    "graph"
+  ],
   "engines": {
     "vscode": "^1.89.0"
   },
@@ -26,6 +43,8 @@
     "media",
     "package.json",
     "README.md",
+    "CHANGELOG.md",
+    "SUPPORT.md",
     "LICENSE",
     "icon.png"
   ],
@@ -39,6 +58,7 @@
     "virtualWorkspaces": true
   },
   "main": "./dist/extension.js",
+  "markdown": "github",
   "contributes": {
     "languages": [
       {
@@ -74,6 +94,7 @@
     ]
   },
   "scripts": {
+    "vscode:prepublish": "npm --prefix .. run build",
     "build": "tsc -p ./tsconfig.json",
     "watch": "tsc -p ./tsconfig.json --watch",
     "typecheck": "tsc -p ./tsconfig.json --noEmit",

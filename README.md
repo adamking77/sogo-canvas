@@ -4,13 +4,13 @@ A theme-native infinite canvas for VS Code. Open `.canvas` files and you get a f
 
 Created by [GoKart Studio](https://gokart.studio).
 
-![Sogo Canvas — dark theme with groups and connectors](media/Sogo-Canvas-demo-1.png)
+![Sogo Canvas — dark theme with groups and connectors](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-demo-1.png)
 
 ## Why this exists
 
 Most VS Code canvas tools work, but they feel imported. Sogo Canvas reads your active theme's color tokens directly, so the surface adapts whether you're in a dark theme, a light theme, or something custom. The interaction model stays small: a few node types, a small toolbar, and canvas settings that live in the file.
 
-![Sogo Canvas — light theme](media/Sogo-Canvas-demo-light.png)
+![Sogo Canvas — light theme](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-demo-light.png)
 
 ## Getting started
 
@@ -42,7 +42,7 @@ Select any node or connector and press `Delete` or `Backspace`.
 
 ### Canvas background and snap
 
-![Canvas background tray and toolbar](media/Sogo-Canvas-Toolbar.png)
+![Canvas background tray and toolbar](https://raw.githubusercontent.com/adamking77/sogo-canvas/main/media/Sogo-Canvas-Toolbar.png)
 
 The background tray at the bottom of the canvas lets you switch between plain, dot, and grid backgrounds, and toggle snap-to-grid on or off. Your current background choice and viewport position are saved into the document.
 
